@@ -1,4 +1,4 @@
-.PHONY: env check test lint
+.PHONY: env check test lint baseline
 
 env:
 	uv sync --all-extras
@@ -11,3 +11,6 @@ test:
 
 lint:
 	uv run ruff check .
+
+baseline:
+	uv run python experiments/00-env-baseline/run.py $(ARGS)

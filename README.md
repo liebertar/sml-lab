@@ -37,7 +37,7 @@ Apple Silicon(MLX)에서 작은 모델을 **가장 효율적으로 돌리는 방
 
 | # | 실험 | 갈래 | 상태 | 요약 |
 |---|---|---|---|---|
-| 00 | env-baseline | B | 계획 | M4 Max에서 Qwen3.5 0.6B~8B, Gemma 4 E2B를 4/8bit로 돌린 tok/s·TTFT·메모리 기준선 |
+| 00 | [env-baseline](experiments/00-env-baseline) | B | 하네스 완료, Studio 측정 대기 | M4 Max에서 Qwen3.5 0.6B~8B, Gemma 4 E2B를 4/8bit로 돌린 tok/s·TTFT·메모리 기준선 |
 | 01 | [minrf-web](experiments/01-minrf-web) | C | 계획 | 소형 rectified flow 학습 → ONNX → 브라우저 생성. 전 구간을 가장 작게 한 번 통과 |
 | 02 | quant-sweep-mlx | A | 계획 | 모델 × 비트수 × 그룹 크기 전수 스윕. 크기·속도·품질 매트릭스 |
 | 03 | metal-kernel | A | 계획 | RMSNorm·RoPE 같은 작은 연산을 커스텀 Metal 커널로 바꿔 기본 대비 측정 |
