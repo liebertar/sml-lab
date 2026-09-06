@@ -3,6 +3,7 @@
 사용법:
     uv run python experiments/00-env-baseline/run.py
     uv run python experiments/00-env-baseline/run.py --models mlx-community/Qwen3-0.6B-4bit --runs 2
+    uv run python experiments/00-env-baseline/run.py --preset studio
 """
 
 from __future__ import annotations
@@ -26,6 +27,15 @@ DEFAULT_MODELS = [
     "mlx-community/Llama-3.2-3B-Instruct-4bit",
     "mlx-community/SmolLM3-3B-4bit",
 ]
+
+STUDIO_MODELS = [
+    "mlx-community/Qwen3.8-27B-4bit",
+    "mlx-community/Qwen3.6-35B-A3B-4bit",
+    "mlx-community/gemma-4-12B-it-qat-4bit",
+    "mlx-community/gemma-4-26b-a4b-it-4bit",
+]
+
+PRESETS = {"small": DEFAULT_MODELS, "studio": STUDIO_MODELS, "all": DEFAULT_MODELS + STUDIO_MODELS}
 
 PROMPT_PARAGRAPH = (
     "Apple Silicon unifies CPU and GPU memory, which changes how inference engines "
@@ -150,8 +160,10 @@ def format_table(rows: list[Measurement]) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--models", default=",".join(DEFAULT_MODELS),
-                        help="쉼표로 구분한 HF repo id")
+    parser.add_argument("--preset", choices=sorted(PRESETS), default="small",
+                        help="small: ≤9B 8종 / studio: 27B급 4종 / all: 둘 다")
+    parser.add_argument("--models", default=None,
+                        help="쉼표로 구분한 HF repo id. 지정하면 --preset 무시")
     parser.add_argument("--repeats", type=int, default=8,
                         help="프롬프트 문단 반복 수 (약 60 tok × 반복)")
     parser.add_argument("--max-tokens", type=int, default=128)
@@ -164,7 +176,8 @@ def main() -> None:
     print(f"# {info['chip']} / {info['memory_gb']} GB / "
           f"macOS {info['macos']} / mlx {info['mlx']}\n")
     rows: list[Measurement] = []
-    for repo_id in [m.strip() for m in args.models.split(",") if m.strip()]:
+    selected = args.models.split(",") if args.models else PRESETS[args.preset]
+    for repo_id in [m.strip() for m in selected if m.strip()]:
         print(f"→ {repo_id}", flush=True)
         try:
             rows.append(measure(repo_id, args.repeats, args.max_tokens, args.runs))

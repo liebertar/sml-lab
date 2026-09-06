@@ -46,6 +46,22 @@ GUI가 편하면 활성 상태 보기 → 윈도우 → GPU 기록. 다운로드
   - 기록: 출력 표를 `experiments/00-env-baseline/README.md`의 "Mac Studio M4 Max 128GB" 자리에 붙이고, 노트북 행과 비율(프리필·디코드)을 "배운 것"에 한 줄 적는다
 - [ ] 커밋: `git add -A && git commit -m "docs(baseline): record M4 Max results"` 후 push
 
+### T1b. Studio 등급 4종 (다운로드 58.6 GB, 첫 실행 20~35분, 재실행 5분)
+
+128GB에서만 의미 있는 큰 모델. 왜 이 넷인지는 [docs/models-2026H2.md](docs/models-2026H2.md).
+
+- [ ] `make baseline ARGS="--preset studio --out outputs/baseline-studio.json"`
+
+    | 모델 | 크기 | 예상 디코드 tok/s |
+    |---|---|---|
+    | Qwen3.8-27B-4bit (2026-08, dense) | 15.0 GB | 25~36 |
+    | Qwen3.6-35B-A3B-4bit (MoE, 활성 3B) | 19.0 GB | 100~150 |
+    | gemma-4-12B-it-qat-4bit | 10.3 GB | 40~55 |
+    | gemma-4-26b-a4b-it-4bit (MoE, 활성 4B) | 14.3 GB | 80~120 |
+
+  - 확인: mactop 메모리가 최대 20 GB 안팎까지만 오른다. MoE 둘이 dense 27B보다 3~4배 빠르면 "활성 파라미터가 속도를 정한다"는 가설 확인
+  - 기록: 같은 README 표에 4행 추가
+
 ---
 
 ## T2. KV 캐시 양자화 (약 5분)
@@ -108,6 +124,17 @@ GUI가 편하면 활성 상태 보기 → 윈도우 → GPU 기록. 다운로드
   - 성공 기준: `Generation:` tok/s가 1.3배 이상 오르고 temp 0이라 출력 텍스트가 동일하다. `--num-draft-tokens`를 2·4·8로 바꿔 최적을 찾는다
   - 기록: 세 값(초안 없음 / 2 / 4 / 8)을 04 README 표에
 
+### T4b. DSpark/DFlash 블록 드래프터 (약 10분)
+
+2026년 방식. 소형 모델 대신 타깃의 은닉 상태를 읽는 드래프터가 여러 토큰을 한 번에 낸다. 무손실.
+
+- [ ] `uv tool install mlx-dspark` 또는 `uv add mlx-dspark` (README의 설치 방법을 따른다)
+- [ ] Gemma 4 12B로 기준 vs DSpark
+  - 도는 것: mlx-dspark CLI. 지원 타깃은 Gemma 4, Qwen3/3.6/3.8, LFM2.5, Muse-Glimmer, Ornith, Nemotron, Bonsai
+  - 시간: 드래프터 다운로드 1~2분 + 실행 각 1분
+  - 성공 기준: 채팅 프롬프트에서 2× 이상, 수학·코드 프롬프트에서 2.5× 이상 (저자 측정 2.6~3.1×). temp 0에서 출력 동일
+  - 기록: T4의 `--draft-model` 결과와 같은 표에. "소형 드래프트 vs 블록 드래프터" 비교가 04 실험의 핵심 표
+
 ---
 
 ## T5. 배치 스케일링 (약 3분)
@@ -165,6 +192,26 @@ GUI가 편하면 활성 상태 보기 → 윈도우 → GPU 기록. 다운로드
   - 기록: `experiments/02-quant-sweep-mlx/README.md` 생성. 이 표가 이후 `mlx_lm.dwq`(증류 보정, 2B 기준 30~60분)와 `mlx_lm.dynamic_quant`(혼합 비트) 비교의 기준이 된다
 
 ---
+
+## T8. 이미지 생성 기준선 (약 15분, 다운로드 ~10 GB)
+
+텍스트와 같은 방식으로 이미지 모델도 숫자를 먼저 잰다. 학습 가능한 두 모델만.
+
+- [ ] `uv tool install --upgrade mflux` (MLX 네이티브, MIT)
+- [ ] Z-Image Turbo
+  ```bash
+  mflux-generate-z-image-turbo --prompt "a product photo of a ceramic mug on a wooden desk, soft light" \
+    --width 1024 --height 1024 --steps 8 --seed 1 --output outputs/zimage.png
+  ```
+- [ ] FLUX.2 Klein 4B (4bit)
+  ```bash
+  mflux-generate-flux2 --model klein-4b --quantize 4 --prompt "a product photo of a ceramic mug on a wooden desk, soft light" \
+    --width 1024 --height 1024 --steps 4 --seed 1 --output outputs/klein4b.png
+  ```
+  - 시간: 첫 실행 다운로드 5~8분, 생성은 1024px 기준 Z-Image 15~30초, Klein 4B 20~40초 예상
+  - 확인: mactop GPU 사용률, 최대 메모리(Klein 4B 4bit ~8 GB)
+  - 성공 기준: 두 장 다 생성되고 초당 스텝 수가 로그에 찍힌다
+  - 기록: `experiments/07-image-baseline/README.md` 생성. 이 둘이 이후 LoRA 학습(mflux `--train`) 대상이다
 
 ## 다음에 열 것
 

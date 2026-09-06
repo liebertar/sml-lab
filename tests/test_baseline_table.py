@@ -36,3 +36,9 @@ def test_build_prompt_falls_back_to_plain_text_without_chat_template():
 
     prompt = baseline.build_prompt(Tokenizer(), repeats=2)
     assert prompt == baseline.PROMPT_PARAGRAPH * 2
+
+
+def test_presets_are_disjoint_and_all_is_their_union():
+    small, studio, everything = (baseline.PRESETS[k] for k in ("small", "studio", "all"))
+    assert not set(small) & set(studio)
+    assert everything == small + studio

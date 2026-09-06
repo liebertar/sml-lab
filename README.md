@@ -4,6 +4,7 @@ Apple Silicon(MLX)에서 작은 모델을 **가장 효율적으로 돌리는 방
 학습·양자화·서빙은 Mac Studio M4 Max 128GB에서, 배포는 브라우저(WebGPU)까지 간다.
 
 > Studio에서 켜자마자 할 일은 **[TASKS.md](TASKS.md)** 에 있다. 명령, 예상 시간, 확인 방법, 성공 기준 순서로 적혀 있다.
+> 어떤 모델을 학습·실험할지는 **[docs/models-2026H2.md](docs/models-2026H2.md)** (2026년 하반기 기준, 텍스트·이미지·음성·임베딩)에서 고른다.
 
 ## 우리가 하는 것
 
@@ -33,13 +34,15 @@ Apple Silicon(MLX)에서 작은 모델을 **가장 효율적으로 돌리는 방
 - **가중치**: `mlx_lm.convert --q-mode {affine,mxfp4,nvfp4,mxfp8} --q-bits --q-group-size`. 같은 4bit라도 affine과 mxfp4의 속도·품질 차이를 재는 것이 첫 질문.
 - **학습형 양자화**: `mlx_lm.dwq`(증류로 양자화 오차 보정), `mlx_lm.dynamic_quant`(레이어 민감도 기반 혼합 비트), `mlx_lm.awq`, `mlx_lm.gptq`. 2B급에서 perplexity 차이를 표로.
 - **KV 캐시**: `--kv-bits 4|8 --kv-group-size`. 긴 문맥에서 메모리와 속도가 어떻게 바뀌는지.
+- **극저비트**: Bonsai-27B(Qwen3.6-27B의 ternary 5.9 GB / 1bit 3.9 GB, MLX 전용 커널)가 4bit 대비 어디까지 버티는지. 1bit에서 툴콜 성능이 크게 떨어진다는 보고를 회귀 세트로 확인.
 - 품질 기준은 `mlx_lm.perplexity`와 고정 프롬프트 회귀 세트 두 개를 같이 본다.
 
 ### 2. 디코드 가속 (B)
 - **speculative decoding**: `--draft-model`(같은 토크나이저의 소형 모델) + `--num-draft-tokens`. 수락률과 배속의 관계.
 - **프롬프트 캐시**: `mlx_lm.cache_prompt`로 시스템 프롬프트·문서를 미리 인코딩해 TTFT를 줄인다.
 - **배치 생성**: `mlx_lm.benchmark -b 1|4|8`. 대역폭에 묶인 디코드는 배치를 키워도 시간이 거의 안 늘어난다는 가설 검증.
-- **MTP 모델**: multi-token prediction 변환본(예: Qwen3.8 MTP)이 MLX에서 실제로 빨라지는지.
+- **MTP 모델**: multi-token prediction 변환본(예: Qwen3.8-27B-MTP)이 MLX에서 실제로 빨라지는지.
+- **DSpark / DFlash**: DeepSeek의 DeepSpec(MIT)이 공개한 블록 드래프터를 MLX로 포팅한 mlx-dspark. Gemma 4 12B 2.6~3.1×, Qwen3.8-27B 최대 4× 무손실 주장을 M4 Max에서 재현한다.
 
 ### 3. 커널과 컴파일 (A)
 - `mx.compile`로 그래프 융합 효과 측정 → `mx.fast.metal_kernel`로 RMSNorm·RoPE 같은 작은 연산을 직접 작성해 비교.
@@ -62,7 +65,7 @@ Apple Silicon(MLX)에서 작은 모델을 **가장 효율적으로 돌리는 방
 
 | # | 실험 | 갈래 | 상태 | 요약 |
 |---|---|---|---|---|
-| 00 | [env-baseline](experiments/00-env-baseline) | B | 하네스 완료, Studio 측정 대기 | 4bit 8종의 tok/s·TTFT·메모리 기준선 |
+| 00 | [env-baseline](experiments/00-env-baseline) | B | 하네스 완료, Studio 측정 대기 | 4bit 소형 8종 + Studio 등급 4종의 tok/s·TTFT·메모리 기준선 |
 | 01 | [minrf-web](experiments/01-minrf-web) | C | 계획 | 소형 rectified flow 학습 → ONNX → 브라우저 생성 |
 | 02 | quant-sweep-mlx | A | 계획 | 모델 × 비트수 × 그룹 크기 × q-mode 전수 스윕 |
 | 03 | metal-kernel | A | 계획 | 작은 연산을 커스텀 Metal 커널로 바꿔 기본 대비 측정 |
