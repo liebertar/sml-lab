@@ -20,7 +20,7 @@ def main() -> None:
     try:
         import mlx.core as mx
 
-        info = mx.metal.device_info()
+        info = mx.device_info()
         print(f"mlx          : {mx.__version__} on {mx.default_device()}")
         print(f"metal device : {info.get('device_name')} / "
               f"max working set {info.get('max_recommended_working_set_size', 0) / 2**30:.0f} GB")
