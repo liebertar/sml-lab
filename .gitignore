@@ -1,0 +1,24 @@
+# python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# 모델·데이터·산출물은 git에 넣지 않는다 (HF Hub 캐시 / 로컬)
+models/
+data/
+outputs/
+*.safetensors
+*.onnx
+*.gguf
+*.npz
+*.pt
+*.ckpt
+
+# web
+node_modules/
+.next/
+
+# mac
+.DS_Store
