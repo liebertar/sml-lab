@@ -30,7 +30,8 @@ def main() -> None:
     try:
         import onnxruntime
 
-        print(f"onnxruntime  : {onnxruntime.__version__} providers={onnxruntime.get_available_providers()}")
+        providers = onnxruntime.get_available_providers()
+        print(f"onnxruntime  : {onnxruntime.__version__} providers={providers}")
     except ImportError:
         print("onnxruntime  : not installed")
 
