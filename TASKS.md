@@ -205,13 +205,13 @@ GUI가 편하면 활성 상태 보기 → 윈도우 → GPU 기록. 다운로드
   ```
 - [ ] FLUX.2 Klein 4B (4bit)
   ```bash
-  mflux-generate-flux2 --model klein-4b --quantize 4 --prompt "a product photo of a ceramic mug on a wooden desk, soft light" \
+  mflux-generate-flux2 --model flux2-klein-4b --quantize 4 --prompt "a product photo of a ceramic mug on a wooden desk, soft light" \
     --width 1024 --height 1024 --steps 4 --seed 1 --output outputs/klein4b.png
   ```
   - 시간: 첫 실행 다운로드 5~8분, 생성은 1024px 기준 Z-Image 15~30초, Klein 4B 20~40초 예상
   - 확인: mactop GPU 사용률, 최대 메모리(Klein 4B 4bit ~8 GB)
   - 성공 기준: 두 장 다 생성되고 초당 스텝 수가 로그에 찍힌다
-  - 기록: `experiments/07-image-baseline/README.md` 생성. 이 둘이 이후 LoRA 학습(mflux `--train`) 대상이다
+  - 기록: `experiments/07-image-baseline/README.md` 생성. 이 둘이 이후 LoRA 학습 대상이다 (mflux는 Z-Image·FLUX.2 학습을 지원, base 모델 사용)
 
 ## 다음에 열 것
 
