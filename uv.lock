@@ -1189,6 +1189,7 @@ dependencies = [
 torch = [
     { name = "torch" },
     { name = "torchvision" },
+    { name = "transformers" },
 ]
 
 [package.dev-dependencies]
@@ -1210,6 +1211,7 @@ requires-dist = [
     { name = "safetensors", specifier = ">=0.5" },
     { name = "torch", marker = "extra == 'torch'", specifier = ">=2.6" },
     { name = "torchvision", marker = "extra == 'torch'", specifier = ">=0.21" },
+    { name = "transformers", marker = "extra == 'torch'", specifier = ">=5" },
 ]
 provides-extras = ["torch"]
 

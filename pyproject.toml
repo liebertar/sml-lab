@@ -16,7 +16,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-torch = ["torch>=2.6", "torchvision>=0.21"]
+torch = ["torch>=2.6", "torchvision>=0.21", "transformers>=5"]
 
 [dependency-groups]
 dev = ["pytest>=8", "ruff>=0.9"]

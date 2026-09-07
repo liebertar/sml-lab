@@ -232,9 +232,37 @@ GUI가 편하면 활성 상태 보기 → 윈도우 → GPU 기록. 다운로드
   - 다음: 잘 안 되면 `flux2-klein-9b-kv`(참조 토큰 KV 캐시, 비상업 라이선스)로 같은 실험. 되면 base-4b로 LoRA 학습(mflux-train) 검토
   - 이미지 정책: 참조는 합성 인물·본인·동의한 사람만
 
+### T8c. 같은 실험에 공개 try-on LoRA 얹기 (약 10분)
+
+프롬프트만으로 안 되는 부분을 LoRA 88 MB가 얼마나 메우는지. 배경은 [docs/frontier-2026H2.md](docs/frontier-2026H2.md) A절.
+
+- [ ] LoRA 다운로드 (Apache-2.0, rank 32, Klein base-4B로 학습)
+  ```bash
+  uv run hf download xocialize/tryon-FLUX.2-klein-4B-lora tryon-klein-4b.safetensors --local-dir models/lora
+  ```
+- [ ] 1번 입력을 clothing-agnostic으로 (옷 영역을 회색으로)
+  ```bash
+  uv run --extra torch python experiments/08-klein-tryon/agnostic.py outputs/tryon/avatar.png
+  ```
+  - 도는 것: segformer_b2_clothes(110 MB)를 MPS에서 실행해 상의·치마·바지·원피스 픽셀을 회색으로. LoRA 저자가 학습에 쓴 것과 같은 모델
+- [ ] 합성 (입력 순서 고정: 인물, 상의, 하의. 원피스면 상의·하의 자리에 같은 이미지)
+  ```bash
+  mflux-generate-flux2-edit --model flux2-klein-4b --quantize 4 \
+    --lora-paths models/lora/tryon-klein-4b.safetensors \
+    --image-paths outputs/tryon/avatar_agnostic.png outputs/tryon/garment.png outputs/tryon/garment.png \
+    --prompt "TRYON a full-body photo of a person. Replace the outfit with the top and bottom as shown in the reference images. The final image is a full body shot." \
+    --steps 4 --seed 42 --width 768 --height 1024 --output outputs/tryon/result_lora_s4_seed42.png
+  ```
+  - 시간: 1장 30~60초. T8b와 같은 시드 3개
+  - 성공 기준: T8b 대비 의류 전이·인물 유지 점수가 오른다. 저자가 밝힌 약점(어두운 옷, 앉은 자세)은 실패 유형으로 따로 적는다
+  - 기록: 08 README 결과 표에 "q4, 4스텝, LoRA" 행 추가. 프롬프트만 vs LoRA 비교가 이 실험의 결론
+
 ## 다음에 열 것
 
 - 01 minrf-web: `third_party/minRF/rf.py`를 MPS로 MNIST 학습(10~20분) → ONNX export → 브라우저. Safari 26·Chrome에서 WebGPU 확인.
+- 09 fashn-vton: FASHN VTON 1.5(972M, 픽셀 공간, 마스크 불필요, Apache-2.0)를 subtree로 가져와 MPS에서 실행. 포즈 검출의 onnxruntime-gpu를 onnxruntime(CoreML)로 교체. 08과 같은 참조로 같은 표.
+- 10 body-params: MHR(`pip install pymomentum-cpu`) 또는 SAM 3D Body로 아바타 1장에서 체형 파라미터 추출.
+- 11 lance-3b: ByteDance Lance(활성 3B, 이미지+비디오 편집)를 MPS에서. 피팅 결과 1장 → 짧은 돌려보기 영상.
 - 03 metal-kernel: `mx.compile` 전후 비교부터. 커스텀 커널은 RMSNorm 하나로 시작.
 - 05 tinygrad-metal-beam: `uv add tinygrad` 후 `METAL=1 BEAM=2`로 matmul 하나 탐색.
 

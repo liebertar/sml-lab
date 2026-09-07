@@ -13,8 +13,10 @@ FLUX.2 Klein 4B의 다중 참조 편집으로 **아바타 1장 + 의류 1장 →
 타인의 얼굴을 합성하는 것은 이 저장소 범위 밖이다.
 
 ## 참고한 원본
-- mflux (MIT): `mflux-generate-flux2-edit`, 참조 다중 입력 지원
+- mflux (MIT): `mflux-generate-flux2-edit`, 참조 다중 입력 지원, `--lora-paths`
 - black-forest-labs/FLUX.2-klein-4B (Apache-2.0)
+- xocialize/tryon-FLUX.2-klein-4B-lora (Apache-2.0): 입력 3장(옷 지운 인물, 상의, 하의), 트리거 `TRYON`
+- mattmdjaga/segformer_b2_clothes: `agnostic.py`가 옷 영역을 회색으로 지울 때 사용
 
 ## 실행
 ```bash
@@ -38,6 +40,7 @@ mflux-generate-flux2-edit --model flux2-klein-4b --quantize 4 \
 | q4, 4스텝, seed 42 | | | | | | |
 | q4, 8스텝, seed 42 | | | | | | |
 | q8, 4스텝, seed 42 | | | | | | |
+| q4, 4스텝, seed 42, **try-on LoRA** | | | | | | 입력 3장: 옷 지운 인물, 상의, 하의 |
 
 채점은 0/1/2 (실패/부분/성공) 세 단계로만 한다. 정량 지표는 다음 단계에서 붙인다.
 

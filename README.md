@@ -5,6 +5,7 @@ Apple Silicon(MLX)에서 작은 모델을 **가장 효율적으로 돌리는 방
 
 > Studio에서 켜자마자 할 일은 **[TASKS.md](TASKS.md)** 에 있다. 명령, 예상 시간, 확인 방법, 성공 기준 순서로 적혀 있다.
 > 어떤 모델을 학습·실험할지는 **[docs/models-2026H2.md](docs/models-2026H2.md)** (2026년 하반기 기준, 텍스트·이미지·음성·임베딩)에서 고른다.
+> 가상 피팅과 그 너머(픽셀 공간 생성, 실시간 비디오, 3D 신체, 통합 소형 모델)의 최신 동향은 **[docs/frontier-2026H2.md](docs/frontier-2026H2.md)**.
 
 ## 우리가 하는 것
 
@@ -73,7 +74,10 @@ Apple Silicon(MLX)에서 작은 모델을 **가장 효율적으로 돌리는 방
 | 05 | tinygrad-metal-beam | A | 계획 | BEAM 커널 탐색을 Metal에서 재현, MLX와 비교 |
 | 06 | slm-browser | C | 계획 | 0.5B급을 q4로 내보내 Transformers.js에서 실행 |
 | 07 | image-baseline | C | 계획 | Z-Image·FLUX.2 Klein 4B 생성 시간·메모리 기준선 (mflux) |
-| 08 | [klein-tryon](experiments/08-klein-tryon) | C | 계획 | Klein 4B 참조 2장(아바타+의류) 합성. 범용 편집 모델을 VTO로 |
+| 08 | [klein-tryon](experiments/08-klein-tryon) | C | 계획 | Klein 4B 참조 2장(아바타+의류) 합성 + 공개 try-on LoRA. 범용 편집 모델을 VTO로 |
+| 09 | fashn-vton | C | 계획 | FASHN VTON 1.5(972M, 픽셀 공간, 마스크 불필요)를 MPS에서. 전용 모델 vs 범용 편집 |
+| 10 | body-params | C | 계획 | MHR / SAM 3D Body로 아바타 1장 → 체형 파라미터. "맞는 사이즈" 층의 씨앗 |
+| 11 | lance-3b | C | 계획 | Lance(활성 3B) 이미지 편집 + 짧은 돌려보기 영상 |
 
 ## 참고 프로젝트
 
