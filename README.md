@@ -72,6 +72,8 @@ Apple Silicon(MLX)에서 작은 모델을 **가장 효율적으로 돌리는 방
 | 04 | slm-serving | B | 계획 | `mlx_lm.server` 부하 테스트, KV 캐시 양자화 효과 |
 | 05 | tinygrad-metal-beam | A | 계획 | BEAM 커널 탐색을 Metal에서 재현, MLX와 비교 |
 | 06 | slm-browser | C | 계획 | 0.5B급을 q4로 내보내 Transformers.js에서 실행 |
+| 07 | image-baseline | C | 계획 | Z-Image·FLUX.2 Klein 4B 생성 시간·메모리 기준선 (mflux) |
+| 08 | [klein-tryon](experiments/08-klein-tryon) | C | 계획 | Klein 4B 참조 2장(아바타+의류) 합성. 범용 편집 모델을 VTO로 |
 
 ## 참고 프로젝트
 

@@ -213,6 +213,25 @@ GUI가 편하면 활성 상태 보기 → 윈도우 → GPU 기록. 다운로드
   - 성공 기준: 두 장 다 생성되고 초당 스텝 수가 로그에 찍힌다
   - 기록: `experiments/07-image-baseline/README.md` 생성. 이 둘이 이후 LoRA 학습 대상이다 (mflux는 Z-Image·FLUX.2 학습을 지원, base 모델 사용)
 
+### T8b. Klein 4B로 아바타 + 옷 참조 2장 합성 → 실험 08 (약 10분, T8 다운로드 공유)
+
+전용 VTO 모델 없이 범용 참조 편집이 어디까지 되는지. 명령은 [experiments/08-klein-tryon](experiments/08-klein-tryon/README.md)에 그대로 있다.
+
+- [ ] 참조 2장 생성: Z-Image Turbo로 합성 인물(768×1024)과 의류 상품 사진(1024²). 각 15~30초
+- [ ] 합성
+  ```bash
+  mflux-generate-flux2-edit --model flux2-klein-4b --quantize 4 \
+    --image-paths outputs/tryon/avatar.png outputs/tryon/garment.png \
+    --prompt "The person from the first image wearing the sweater from the second image. Keep the same face, body proportions, pose and background. Photorealistic." \
+    --steps 4 --seed 42 --width 768 --height 1024 --output outputs/tryon/result_s4_seed42.png
+  ```
+  - 도는 것: mflux `Flux2KleinEdit`. 참조 이미지 토큰 + 노이즈 토큰을 한 시퀀스로 넣는 구조라, 프로덕션 VTO(FLUX.2 Klein 4B, H100 1.4초)와 같은 원리
+  - 시간: 1장당 30~60초 예상(M4 Max, q4). 시드 3개 × 스텝 4/8 = 6장이면 5분
+  - 확인: mactop 메모리 8~10 GB. `--metadata`를 붙이면 설정이 JSON으로 남는다
+  - 성공 기준: 6장 중 4장 이상에서 의류 색·패턴이 옮겨지고 얼굴·체형이 유지된다. 실패 유형(의류 환각, 인물 변형, 배경 변화)을 표에 적는다
+  - 다음: 잘 안 되면 `flux2-klein-9b-kv`(참조 토큰 KV 캐시, 비상업 라이선스)로 같은 실험. 되면 base-4b로 LoRA 학습(mflux-train) 검토
+  - 이미지 정책: 참조는 합성 인물·본인·동의한 사람만
+
 ## 다음에 열 것
 
 - 01 minrf-web: `third_party/minRF/rf.py`를 MPS로 MNIST 학습(10~20분) → ONNX export → 브라우저. Safari 26·Chrome에서 WebGPU 확인.
