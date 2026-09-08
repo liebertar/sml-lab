@@ -1,0 +1,1107 @@
+[
+ {
+  "title": "Desk Chronosplat: three months of my desk as one scrubbable 3D scene",
+  "one_liner": "Weekly iPhone captures of the same desk/plant corner become one Gaussian-splat scene with a time axis you can scrub, and a 'diff' mode that highlights what moved, appeared, or grew.",
+  "wow": "A visitor drags a time slider and watches the coffee cup migrate, the monstera unfurl a new leaf, and last month's book stack vanish, all as solid 3D they can orbit; a 'ghost' toggle shows the Gaussians that changed in red.",
+  "train_what": "Per-scene 3DGS base (Brush / metal-gauss) plus a small 4D residual field: a hash-grid MLP (~2M params, PyTorch MPS) that predicts per-Gaussian position/opacity/color deltas as a function of capture date, trained on top of a frozen shared base splat",
+  "method": "splat",
+  "data_plan": "Own data only. Same 60-second phone orbit of the desk every weekend for 12 weeks (fixed start marker on the floor so COLMAP/splat-local registers all sessions into one frame; ~150 frames each, ~1800 images total). Session 1 trains the base splat; sessions 2..12 supervise the residual MLP. Optional: MoGe-3 depth as a regularizer for low-texture desk surfaces.",
+  "mac_plan": "Brush or metal-gauss: ~20 min per session for 1M Gaussians, <16 GB unified memory; 12 sessions ≈ 4 h total. Residual field: PyTorch 2.14 MPS, batch of 8 views, ~2-3 h, <25 GB. Export base + per-week deltas as compressed .spz; whole weekend 1 for capture setup + first three sessions, weekends 2-3 accumulate.",
+  "demo": "Spark 2.x page on the formless blog: 3D desk with a date slider, a 'what changed' heatmap, and a per-week 'delta only' view; runs fully client-side (<30 MB splat + small delta table).",
+  "risk": "Session-to-session registration drift (lighting/exposure changes fool COLMAP); mitigate with the floor marker, a locked-exposure capture app, and initializing every session's poses from session 1. Residual field can smear moved objects into blobs; freeze the base and restrict deltas to a learned mask.",
+  "sources": [
+   "https://github.com/ArthurBrussee/brush",
+   "https://github.com/nandometzger/metal-gauss",
+   "https://github.com/michael-L-i/splat-local",
+   "https://github.com/sparkjsdev/spark",
+   "https://github.com/microsoft/MoGe"
+  ],
+  "uses": [
+   "Brush",
+   "metal-gauss",
+   "splat-local",
+   "MoGe-3 on MLX",
+   "Spark 2.x"
+  ]
+ },
+ {
+  "title": "Bottle-Splat: TripoSplat LoRA fine-tuned on my own cosmetic containers",
+  "one_liner": "Fine-tune single-image-to-3DGS (TripoSplat) on 40 real cosmetic bottles I capture myself, so glass, frosted plastic and glossy caps stop smearing; ground truth comes from my own trained splats.",
+  "wow": "On the beu page, drop one phone photo of a bottle and 3 seconds later a rotatable splat appears with believable transparency and a readable label; a side-by-side shows the stock model's mushy glass next to the fine-tuned one.",
+  "train_what": "TripoSplat (VAST-AI) DiT, LoRA rank 16 on attention + adaLN layers, trained with novel-view rendering loss against my own captured splats",
+  "method": "lora",
+  "data_plan": "40 cosmetic bottles/jars from the beu project captured with splat-local (2-min video each) and trained into GT splats with Brush (40 × ~15 min). Render 64 views per bottle (2,560 GT views). Augment inputs with Qwen-Image-Edit-2511 label recolor / relabel edits and Marigold-IID-consistent relights (geometry unchanged) to reach ~6,000 (input photo → GT splat, GT views) pairs.",
+  "mac_plan": "GT splats: ~10 h Brush over one weekend (unattended). LoRA: PyTorch 2.14 MPS, bf16, batch 1, 512px inputs, ~12 h for 6k steps, ~40-50 GB peak. Export the LoRA-merged weights and run inference natively on Mac.",
+  "demo": "beu web page: upload bottle photo → Spark viewer with the splat, turntable, and 'before/after fine-tune' toggle; gallery of the 40 bottles plus 10 held-out unseen ones.",
+  "risk": "TripoSplat's training path may rely on CUDA rasterizers; fallback is to supervise only in latent/feature space or swap in a Metal rasterizer (metal-gauss/msplat). Bundled FLUX.2 VAE is non-commercial, so this stays a lab demo.",
+  "sources": [
+   "https://github.com/VAST-AI-Research/TripoSplat",
+   "https://github.com/michael-L-i/splat-local",
+   "https://github.com/ArthurBrussee/brush",
+   "https://huggingface.co/Qwen/Qwen-Image-Edit-2511",
+   "https://github.com/nandometzger/metal-gauss"
+  ],
+  "uses": [
+   "TripoSplat",
+   "splat-local",
+   "Brush",
+   "Qwen-Image-Edit-2511",
+   "metal-gauss",
+   "Spark 2.x"
+  ]
+ },
+ {
+  "title": "Sundial Room: a relightable splat of my apartment trained from five times of day",
+  "one_liner": "Capture the same room under morning sun, noon, golden hour, lamps and a single desk lamp, freeze the geometry, and train a lighting-conditioned appearance field so a web visitor drags the sun across the real floor.",
+  "wow": "A sun-dial widget: drag from 8am to 10pm and real shadows from my window frame crawl across the actual floor, then the lamps come on, all inside a walkable 3D copy of the apartment.",
+  "train_what": "Per-scene 3DGS geometry (metal-gauss) plus a per-Gaussian appearance MLP (32-d lighting latent code → SH color + opacity offset, ~1M params) trained in PyTorch MPS; latent codes are learned per capture and interpolated on a circular time-of-day embedding",
+  "method": "splat",
+  "data_plan": "Own apartment, 5 lighting states × the same ~200-frame phone path (marker-registered as in Chronosplat), ~1,000 images. Marigold-IID albedo maps of ~100 frames per state act as an albedo-consistency loss so the field changes shading, not paint. Optional: 3 extra 'lamp only' states to make lamps individually switchable.",
+  "mac_plan": "metal-gauss geometry on the noon capture: 20 min, <16 GB. Appearance MLP: PyTorch 2.14 MPS, 4 h, ~30 GB. Marigold-IID on MLX/MPS for 500 frames: ~1 h. Two weekends including captures.",
+  "demo": "Spark 2.x walkable room on the blog with a time-of-day dial, per-lamp switches, and a 'show albedo' toggle; custom shader receives the lighting code and evaluates the tiny MLP as a per-Gaussian LUT baked to a texture.",
+  "risk": "Sun states differ in exposure and white balance; lock camera exposure and estimate a per-capture exposure scalar. Interpolated codes between states may produce implausible in-between shadows; capture 8 states instead of 5 if it looks wrong.",
+  "sources": [
+   "https://github.com/nandometzger/metal-gauss",
+   "https://huggingface.co/prs-eth/marigold-iid-lighting-v1-1",
+   "https://github.com/sparkjsdev/spark",
+   "https://github.com/ArthurBrussee/brush"
+  ],
+  "uses": [
+   "metal-gauss",
+   "Marigold-IID",
+   "Spark 2.x",
+   "Brush"
+  ]
+ },
+ {
+  "title": "Room-Shadow LoRA: a compositing LoRA that learned the light of my apartment",
+  "one_liner": "Use my own room splat and TRELLIS.2 meshes of my desk objects as a synthetic data factory to train an image-edit LoRA that drops any product into a photo of my room with correct contact shadow and reflected light.",
+  "wow": "On beu, drag a bottle cutout onto a photo of my desk; the model rewrites it with a soft shadow bending over the table edge and the orange wall bounce on its cap, and the 'naive paste' toggle shows how flat it was before.",
+  "train_what": "Qwen-Image-Edit-2511 with Lightning 4-step base, LoRA rank 32 via mflux (fallback: FLUX.2 Klein 9B edit LoRA in mflux, which already trains on Mac)",
+  "method": "lora",
+  "data_plan": "Scene: apartment splat (Brush) exported to a mesh proxy for shadows + Marigold-IID lighting estimate. Objects: 30 desk/bathroom objects → TRELLIS.2 PBR meshes on Mac. Blender Cycles (Metal) renders 1,500 pairs: (room view with object flat-pasted from a BiRefNet cutout) → (same view path-traced with shadow, AO and bounce). Instruction text: 'integrate the pasted object into the scene lighting'. 200 real pairs shot with actual objects placed on the desk for validation.",
+  "mac_plan": "TRELLIS.2 for 30 objects: ~1 h. Blender renders: ~6 h unattended. mflux LoRA on 8-bit Qwen-Image-Edit: ~60-70 GB peak, 3,000 steps ≈ 8-10 h on M4 Max; Klein 9B fallback ≈ 4 h, 30 GB.",
+  "demo": "beu page: pick a room photo, drop a product cutout (BiRefNet in-browser), send to the local mflux endpoint, get the integrated composite with a before/after slider; gallery of 20 products × 5 room spots.",
+  "risk": "mflux may not yet expose LoRA training for Qwen-Image-Edit (only inference); Klein 9B is the verified training path. Synthetic-to-real gap: renders look 'too clean' — add camera noise, JPEG and slight color jitter; validate on the 200 real pairs.",
+  "sources": [
+   "https://huggingface.co/Qwen/Qwen-Image-Edit-2511",
+   "https://github.com/microsoft/TRELLIS.2",
+   "https://huggingface.co/prs-eth/marigold-iid-lighting-v1-1",
+   "https://github.com/ZhengPeng7/BiRefNet",
+   "https://github.com/ArthurBrussee/brush"
+  ],
+  "uses": [
+   "Qwen-Image-Edit-2511",
+   "TRELLIS.2",
+   "Marigold-IID",
+   "BiRefNet dynamic 1024",
+   "Brush",
+   "Flux2-Klein"
+  ]
+ },
+ {
+  "title": "Walk With Me: a splat of my neighborhood walk with an in-page VLM that knows where you are",
+  "one_liner": "Train a Gaussian splat of a 300 m Seoul walk and LoRA-tune a 2B VLM on views rendered from it, so a browser-side model looks at the current viewport, tells you where you are, and links the blog post written at that spot.",
+  "wow": "A visitor walks the real street in 3D; a tiny on-device model narrates 'this is the corner cafe where the post about surface tension was written' and drops a pin on a hand-drawn map, no server involved.",
+  "train_what": "Qwen3.5-2B VLM (MLX), LoRA rank 16 on the LLM + projector via mlx-vlm; outputs a place name, a short memory, and grid coordinates as tokens (grounding-style)",
+  "method": "lora",
+  "data_plan": "Three 5-min iPhone walks → splat-local → Brush splat. Render 2,500 novel views on and off the path with known camera positions. Captions: CapRL-Qwen3VL-2B descriptions merged with my own 30 place notes (memories, which post I wrote where, times of day) → 2,500 (image → place, memory, x/y) samples, plus 300 real phone photos as held-out test.",
+  "mac_plan": "Splat: ~1.5 h Brush. Rendering: 20 min. LoRA in mlx-vlm: ~2 h, <16 GB. Export to ONNX (Transformers.js Qwen3.5-2B-ONNX-OPT layout) for WebGPU inference; Safari 26 and Chrome both tested.",
+  "demo": "formless blog page: Spark walkable street scene; every 2 s the current canvas frame is sent to the in-browser Qwen3.5-2B LoRA; a sidebar narrates and highlights the related post; a tiny map shows the model's guessed position vs. the true camera.",
+  "risk": "WebGPU memory for a 2B VLM plus a 100 MB splat on one page; ship a 4-bit ONNX and lazy-load the model. Rendered views vs. real photos domain gap; include the 300 real photos in training as well.",
+  "sources": [
+   "https://huggingface.co/onnx-community/Qwen3.5-2B-ONNX-OPT",
+   "https://github.com/InternLM/CapRL",
+   "https://github.com/michael-L-i/splat-local",
+   "https://github.com/ArthurBrussee/brush",
+   "https://github.com/sparkjsdev/spark"
+  ],
+  "uses": [
+   "Qwen3.5-2B",
+   "CapRL-Qwen3VL-2B",
+   "splat-local",
+   "Brush",
+   "Spark 2.x"
+  ]
+ },
+ {
+  "title": "Apartment World Model: a video LoRA that walks through my flat from one photo",
+  "one_liner": "Render thousands of camera trajectories from my apartment splat and LoRA-tune an image-to-video model with action prompts, so from a single hallway photo the model 'walks forward, turns left' and reveals the actual kitchen it has memorized.",
+  "wow": "Give it one photo of my hallway, press the arrow keys, and the model generates a walk that turns the corner into the correct kitchen — with the real fridge magnets — because the model learned the apartment, not just the pixels.",
+  "train_what": "Wan2.2-TI2V-5B (MLX via mlx-gen / mlx-video) with the 4-step Lightning LoRA as base, plus a new LoRA rank 32 conditioned on action text ('walk forward 2 m', 'turn left 30°'); fallback: SANA-WM camera-controlled world model LoRA, which takes explicit camera poses",
+  "method": "lora",
+  "data_plan": "Apartment splat (Brush, all rooms, ~2,000 frames). Programmatic camera paths: 2,000 clips × 49 frames at 480p with 6 action vocabularies (forward, back, turn L/R, look up/down) and mixed speeds; each clip's first frame is the conditioning image, action string is the prompt. 100 real handheld clips of the same moves for validation.",
+  "mac_plan": "Rendering 2,000 clips from the splat: ~1 h. LoRA on a 5B video model in MLX (or PyTorch MPS with diffusers training script if mlx-gen is inference-only): bf16 weights ~10 GB, 480p × 49 frames, gradient checkpointing, ~45-60 GB peak, ~15-20 h across two nights. Inference with Lightning 4-step: ~2-3 s per 1-s chunk for the arrow-key demo.",
+  "demo": "Local Mac demo page: upload one apartment photo, press arrow keys, chunks stream into a video element; side panel shows the 'ground truth' splat walk for the same actions. Recorded clips embedded in the blog for visitors.",
+  "risk": "Training support for Wan in MLX may be absent — then PyTorch MPS is slower and memory-hungrier; the SANA-WM fallback with explicit camera poses is the safer route. Action text is a weak control signal; if turns are unreliable, condition on rendered camera-pose maps instead of text.",
+  "sources": [
+   "https://github.com/lpalbou/mlx-gen",
+   "https://github.com/NVlabs/Sana",
+   "https://github.com/ArthurBrussee/brush",
+   "https://github.com/sparkjsdev/spark"
+  ],
+  "uses": [
+   "Wan2.2-TI2V-5B in MLX",
+   "SANA-WM",
+   "Brush",
+   "Spark 2.x"
+  ]
+ },
+ {
+  "title": "200 Syllables In, 11,172 Out",
+  "one_liner": "Handwrite 200 Hangul syllables on one sheet; a tiny jamo-conditioned diffusion model trained on 150 free Korean fonts completes your entire handwriting font, in the browser.",
+  "wow": "Visitor types any Korean sentence and it appears in the author's own handwriting, including syllables the author never wrote (e.g. 뷁, 쀍) — a slider morphs the handwriting toward Pretendard and back.",
+  "train_what": "From scratch: ~25M-param conditional DiT (64x64 glyph, rectified flow) with three jamo embeddings (초성/중성/종성) plus a style vector from a frozen DINOv3 ViT-S/16 pooled over 8 reference glyphs",
+  "method": "from-scratch",
+  "data_plan": "Fonts as the training set: ~150 free Korean fonts (Noto Sans/Serif KR, Nanum family, Pretendard, Gowun, Gaegu, Hakgyoansim, Google Fonts Korean set) rendered with fontTools/Pillow at 64px for the 2,350 KS X 1001 syllables -> ~350k (jamo, style-refs, glyph) triples; augment with 20% random affine. Own data: one A4 template with 200 syllables chosen to cover every jamo in every position, photographed, cut with a grid + BiRefNet, then a 30-minute fine-tune on those 200 glyphs.",
+  "mac_plan": "PyTorch 2.14 MPS (chosen over MLX so the model exports to ONNX for the browser). 64x64, batch 256, bf16, ~8-10 h for 150k steps; <8 GB memory. Style encoder: DINOv3 ViT-S/16 ONNX, frozen. Export to ONNX, run with ONNX Runtime Web/WebGPU (25M params, 8 sampling steps ~60 ms per glyph).",
+  "demo": "Static page in the formless blog: text box -> live rendering in the author's handwriting, plus a 'font completion' grid showing the 200 written vs 10,972 generated glyphs highlighted; downloadable .ttf built by tracing the generated glyphs with Trazor in-browser.",
+  "risk": "Glyph-level diffusion may blur thin strokes at 64px; fallback is 96px and a small VQ decoder. Style leakage from fonts into handwriting if the fine-tune is too long — keep it to a few hundred steps with a held-out 20-syllable check.",
+  "sources": [
+   "https://huggingface.co/onnx-community/dinov3-vits16-pretrain-lvd1689m-ONNX",
+   "https://github.com/PhenX/Trazor",
+   "https://huggingface.co/onnx-community/BiRefNet_dynamic-1024x1024-ONNX",
+   "https://fonts.google.com/?subset=korean"
+  ],
+  "uses": [
+   "DINOv3 ViT-S/16 in the browser",
+   "Trazor",
+   "BiRefNet dynamic 1024"
+  ]
+ },
+ {
+  "title": "Signboard Census of My Neighborhood",
+  "one_liner": "A LoRA on Qwen3.5-2B VLM that reads Korean shop signs and tags their typography (lettering style, material, era) so a weekend of city walks becomes a typographic atlas of the streets around home.",
+  "wow": "A street-level map: every 간판 photographed within 1 km of the author's apartment, colour-coded by the model's verdict (1980s hand-painted, 90s acrylic channel letters, 2020s minimal sans, LED). Hover shows the crop, transcript and why. Live tab: point the phone camera at a sign in Safari and the 2B model tags it on-device.",
+  "train_what": "Qwen3.5-2B native-multimodal VLM, LoRA (rank 16) on the language tower + vision projector, structured JSON output {text, script_style, material, era, condition}",
+  "method": "lora",
+  "data_plan": "Own data: 2,000 phone photos from 4 walks; SAM 3 text prompt 'shop sign' crops ~4,500 signboards; DINOv3 dedups near-duplicates. Labels: CapRL-Qwen3VL-2B drafts captions, GLM-OCR drafts the transcript, then 600 crops are hand-corrected in a 2-hour labeling page (the artifact itself). Synthetic boost: 6,000 signboards rendered with Ideogram 4 / Boogu-Image from a controlled prompt grid (style x material x era) so the label is known by construction; UnifiedReward-Flex filters out unreadable ones. Final: ~10k pairs, 80/20 real/synthetic in the eval split reversed.",
+  "mac_plan": "mlx-vlm LoRA on Qwen3.5-2B, bf16, batch 8, 1,024-token max, ~2.5 h for 3 epochs, ~14 GB. Labeling pipeline: GLM-OCR + CapRL on MLX, ~40 min for 10k crops. Merge LoRA -> export with the onnx-community Qwen3.5-2B recipe for Transformers.js (q4, WebGPU).",
+  "demo": "Artifact page with a MapLibre/Leaflet map of the walk routes, the tagged crops, era histogram per street, and a 'live camera' tab running the merged model in Transformers.js v4 on WebGPU.",
+  "risk": "2B VLM in the browser is ~1.5 GB download and slow on Safari; keep the live tab optional and serve the map with precomputed tags. Era labels are subjective — publish the rubric and the hand-labelled 600 as ground truth.",
+  "sources": [
+   "https://huggingface.co/onnx-community/Qwen3.5-2B-ONNX-OPT",
+   "https://github.com/facebookresearch/sam3",
+   "https://github.com/InternLM/CapRL",
+   "https://huggingface.co/zai-org/GLM-OCR",
+   "https://github.com/ideogram-oss/ideogram-4"
+  ],
+  "uses": [
+   "Qwen3.5-2B native-multimodal VLM",
+   "SAM 3 / SAM 3.1 text-prompted segmentation",
+   "CapRL-Qwen3VL-2B",
+   "GLM-OCR on MLX",
+   "Ideogram 4",
+   "UnifiedReward-Flex-qwen3vl-4b",
+   "DINOv3 ViT-S/16 in the browser"
+  ]
+ },
+ {
+  "title": "Old Sign to Vector Logotype",
+  "one_liner": "Teach OmniSVG to vectorize Hangul: fonts give free (raster -> SVG path) pairs at scale, Qwen-Image-Edit weathers them into neon, rust and peeling paint, so a photo of a 40-year-old 간판 comes back as a clean editable SVG logotype.",
+  "wow": "Side-by-side: phone photo of a faded 을지로 sign -> the model's SVG, bezier handles visible, then the same logotype embossed on a beu cosmetics bottle. A gallery of 50 disappearing Seoul signs, each rescued as a vector.",
+  "train_what": "OmniSVG 1.1 4B (Qwen-VL backbone), LoRA (rank 32) on image-to-SVG with a Hangul-heavy corpus; SVG tokens limited to M/L/C/Z path commands",
+  "method": "lora",
+  "data_plan": "Fonts as training set: 120 Korean fonts x 2,350 syllables + 3,000 two-to-four-syllable shop-name strings -> SVG paths exported with fontTools (ground truth), rendered to 512px. Degradation branch: 40k of those renders pushed through Qwen-Image-Edit-2511 with the Lightning 4-step LoRA using prompts like 'make it a rusted metal shop sign at dusk', 'neon tube', 'hand-painted on tile', plus perspective warps and photo noise -> ~280k pairs total. Own data: 300 sign crops from the census walks (SAM 3 + BiRefNet cutout) as the eval set, no ground truth, judged visually and by DINOv3 similarity of the re-rasterized SVG.",
+  "mac_plan": "mlx-vlm LoRA, bf16 4B base, batch 4, seq 4,096 (SVG tokens are long), ~18 h over two nights, ~28 GB. Degradation generation with mflux Qwen-Image-Edit Lightning at 512px ~4 s/image -> 40k images ~45 h split across background nights, or cut to 12k. Inference ~20 s per sign on the Mac; serve as static gallery.",
+  "demo": "Gallery artifact: photo / SVG / bottle-mockup triptychs, SVG source inspectable and downloadable; a 'submit a sign' page batch-processed nightly on the Mac.",
+  "risk": "OmniSVG token budget may truncate complex multi-syllable signs; restrict to <= 6 syllables and simplify paths with a Ramer-Douglas-Peucker pass before training. Degraded renders must keep the glyph geometry — verify with a quick OCR round-trip through GLM-OCR and drop mismatches.",
+  "sources": [
+   "https://github.com/OmniSVG/OmniSVG",
+   "https://huggingface.co/Qwen/Qwen-Image-Edit-2511",
+   "https://github.com/ximinng/HiVG",
+   "https://github.com/zjx0101/ObjectClear"
+  ],
+  "uses": [
+   "OmniSVG 1.1 (4B / 8B)",
+   "Qwen-Image-Edit-2511 (+ Lightning 4-step LoRA, MLX via mflux/mlx-gen)",
+   "SAM 3 / SAM 3.1 text-prompted segmentation",
+   "BiRefNet dynamic 1024 (browser cutout / matting)",
+   "GLM-OCR on MLX"
+  ]
+ },
+ {
+  "title": "Seoul Surface Library",
+  "one_liner": "A FLUX.2 Klein 4B material LoRA trained on the author's own photos of city surfaces (rooftop waterproof green, 을지로 rust, bathhouse tile, sidewalk granite, tarp blue) that re-skins beu packaging and formless hero objects in the textures of the neighbourhood.",
+  "wow": "One cosmetics bottle rendered in 16 Seoul materials, each captioned with the GPS spot and the original photo of the wall it came from; drag the light (MoGe-2 WebGPU normals) and the rust catches highlights in the browser.",
+  "train_what": "FLUX.2 Klein 4B, style/material LoRA (rank 16) with one trigger token per material, trained on multi-reference edit pairs so the material applies to an input object rather than only to text-to-image",
+  "method": "lora",
+  "data_plan": "Own data: 400 close-up surface photos from 3 walks, sorted into 16 materials with DINOv3 clustering, captioned by CapRL with the trigger token inserted. Paired data (2,400 pairs): take 150 clean packshots (own beu renders + HiDream-O1 packshots), and produce material-applied targets with DealMaTe / Qwen-Image-Edit using the walk photo as the reference swatch; UnifiedReward-Flex keeps the top 60%. Train on (packshot + swatch -> target) so Klein's native multi-image editing learns the mapping; hold out 2 materials to test generalisation.",
+  "mac_plan": "mflux Klein 4B LoRA training, 768px, batch 1, grad accumulation 4, ~3,000 steps, ~5-6 h, ~30 GB. Pair generation: Qwen-Image-Edit Lightning on mflux ~4 s/image -> 2,400 targets in ~3 h; DealMaTe on MPS is slower (~40 s) so use it only for the 4 hardest materials. Inference ~6 s per 768px edit.",
+  "demo": "Interactive artifact: pick material -> pick object (bottle, jar, formless title letters) -> precomputed result; MoGe-2 WebGPU normal map lets the visitor drag a light over the rusted bottle; each material links to its source wall photo and map pin.",
+  "risk": "Klein 4B edit-pair LoRA in mflux is less documented than text-to-image LoRA; if unstable, fall back to a text-to-image material LoRA and apply via Klein's reference editing at inference. Photos of textures need consistent scale — shoot with a coin for reference.",
+  "sources": [
+   "https://github.com/haha-lisa/DealMaTe",
+   "https://huggingface.co/Qwen/Qwen-Image-Edit-2511",
+   "https://github.com/lyonsno/moge-webgpu",
+   "https://github.com/CodeGoat24/UnifiedReward",
+   "https://huggingface.co/HiDream-ai/HiDream-O1-Image"
+  ],
+  "uses": [
+   "Flux2-Klein-9B-Consistency LoRA",
+   "DealMaTe (Multi-Dimensional Material Transfer via DiT)",
+   "Qwen-Image-Edit-2511 (+ Lightning 4-step LoRA, MLX via mflux/mlx-gen)",
+   "MoGe-2 WebGPU + Three.js light-interaction",
+   "UnifiedReward-Flex-qwen3vl-4b",
+   "CapRL-Qwen3VL-2B",
+   "DINOv3 ViT-S/16 in the browser"
+  ]
+ },
+ {
+  "title": "Every Commit Is a Poster",
+  "one_liner": "A Qwen3.5-2B LoRA that turns a Korean brief (a blog post excerpt, a commit message, a calendar entry) into a Swiss-grid Korean poster as SVG, trained on procedurally generated layouts scored by a VLM judge, running fully in the browser.",
+  "wow": "The visitor scrolls the author's git log and each commit renders as a full-bleed typographic poster in Pretendard, generated live in Safari with WebGPU; clicking a formless blog post gives an alternate poster in 2 seconds. No server.",
+  "train_what": "Qwen3.5-2B (text mode), LoRA (rank 16) mapping {brief, palette, mood} -> constrained SVG (text, rect, line elements, 2-6 lines of Hangul, one accent shape), plus a second round of rejection-sampling fine-tune on judge-approved outputs",
+  "method": "lora",
+  "data_plan": "Synthetic layouts: a Python grammar (12-column grid, 5 type scales, Pretendard/Noto Serif KR, 8 palettes, jamo-aware line breaking) generates 30k SVG posters from 3k Korean briefs (own blog posts, own commit messages, Korean Wikipedia lead sentences); rendered with resvg, scored by UnifiedReward-Flex-qwen3vl-4b on 'poster quality, readability of Hangul, hierarchy'; keep the top 12k for stage 1. Stage 2: sample 4 posters per brief from the stage-1 model, judge again, fine-tune on the winners (4k). Eval: 50 hand-ranked pairs.",
+  "mac_plan": "mlx-lm lora on Qwen3.5-2B bf16, seq 2,048, batch 8, stage 1 ~1.5 h, stage 2 ~40 min, ~12 GB. Judging 30k renders with UnifiedReward 4B on MLX ~3 h. Merge, then use the onnx-community Qwen3.5-2B-ONNX-OPT export path (q4f16) for Transformers.js v4 WebGPU; ~1.2 GB download cached.",
+  "demo": "Artifact page in formless: left, the author's git log / post list; right, the generated SVG poster; a 'reroll' button and a switch showing the tiny difference stage 2 made. Posters are downloadable SVG (print-ready A2).",
+  "risk": "2B LLM producing valid SVG needs a strict grammar — validate and auto-repair with a parser, and count invalid rate as a metric. Browser load time on Safari is the main UX risk; ship precomputed posters for the first screen.",
+  "sources": [
+   "https://huggingface.co/onnx-community/Qwen3.5-2B-ONNX-OPT",
+   "https://github.com/CodeGoat24/UnifiedReward",
+   "https://github.com/MeiGen-AI/PosterOmni",
+   "https://github.com/ml-explore/mlx-lm"
+  ],
+  "uses": [
+   "Qwen3.5-2B native-multimodal VLM",
+   "UnifiedReward-Flex-qwen3vl-4b",
+   "PosterOmni v1"
+  ]
+ },
+ {
+  "title": "Hangul That Writes Itself",
+  "one_liner": "A 5M-param stroke-sequence transformer (sketch-RNN style) trained on stroke-ordered skeletons of 120 Korean fonts, so the formless WebGL hero can write any Hangul word stroke by stroke in a style that drifts continuously between fonts, at 60 fps in the page.",
+  "wow": "The blog title and every heading draw themselves as the visitor scrolls, pen-stroke order correct, and the 'font' slowly mutates along a latent walk — never the same rendering twice, never illegible. Mouse proximity bends the strokes (reusing the LivingTitle rule).",
+  "train_what": "From scratch: decoder-only transformer (6 layers, d=256) predicting pen (dx, dy, pen_down, end) tokens conditioned on jamo IDs and a 32-d style latent (VAE-style, trained jointly); a tiny stroke-VAE gives the interpolation space",
+  "method": "from-scratch",
+  "data_plan": "Fonts as training set: 120 fonts x 2,350 syllables -> glyph outlines via fontTools -> skeletonize (scikit-image) -> strokes split at junctions -> ordered by Hangul stroke rules (left-to-right, top-to-bottom, jamo order) -> resampled to 24 points per stroke; ~280k sequences, avg 9 strokes. Own data: 300 syllables written on a tablet (stroke order captured natively) added with a dedicated style latent so 'the author's hand' is one point in the space. Eval: OCR the finished rendering with GLM-OCR; legibility rate must stay >97% along latent walks.",
+  "mac_plan": "PyTorch 2.14 MPS (ONNX export target), batch 512 sequences, ~2 h to converge on M4 Max, <4 GB. Skeletonization preprocessing ~1 h with multiprocessing. Export to ONNX (~20 MB), run in ONNX Runtime Web; strokes fed to the existing ogl hero as instanced line geometry.",
+  "demo": "formless hero upgrade: title and section rails write themselves; a lab page with a 2D style pad (x: serif-ness, y: hand-ness) and a text box; a 'race' mode showing the same word written in 20 sampled styles simultaneously.",
+  "risk": "Skeleton-based stroke order will be wrong for some fonts (rounded/decorative), poisoning the sequence order — filter fonts whose skeleton stroke count disagrees with the rule-based expected count. Also keep the model deterministic given a seed so SSR and client agree.",
+  "sources": [
+   "https://github.com/fonttools/fonttools",
+   "https://huggingface.co/zai-org/GLM-OCR",
+   "https://onnxruntime.ai/docs/tutorials/web/",
+   "https://github.com/oframe/ogl"
+  ],
+  "uses": [
+   "GLM-OCR on MLX"
+  ]
+ },
+ {
+  "title": "Window Clock: your own window as an implicit neural timelapse",
+  "one_liner": "Train a tiny coordinate network on 30 days of your own window/desk timelapse so (x, y, hour, day) -> pixel; the blog hero regenerates the view outside your apartment at whatever minute the visitor scrubs to.",
+  "wow": "A visitor drags a 24h ring (and a second ring for the calendar) and the real view from your desk re-renders live at 60 fps in WebGPU: dawn haze, noon, rain day, night lights. Not video playback: a 6 MB network hallucinating times you never photographed, including 3:13 AM on a day that was cloudy at noon.",
+  "train_what": "From scratch: a NeRV/SIREN-style implicit video network (~1.5M params, hash-grid or Fourier features on x,y + 2 time axes, small MLP decoder), plus a 4x lighter distilled student for the browser.",
+  "method": "from-scratch",
+  "data_plan": "Own data. Put a phone or a spare webcam on the desk pointed at the window, capture one 1080p frame every 2 minutes for 2-4 weeks (~10k-20k frames, ffmpeg cron). Time labels come from EXIF. Optional: mask the moving curtain with BiRefNet so the network learns light, not clutter. No synthetic data needed.",
+  "mac_plan": "PyTorch 2.x MPS (or MLX); sample 2M pixel rays per step, ~30k steps. ~2-4 GB memory, 1-3 hours per run, 5-6 runs while tuning (one weekend). Export ONNX, run with ONNX Runtime Web/WebGPU inside the ogl hero in formless.",
+  "demo": "Blog hero on formless: a hero-sized canvas with two scrubbers (hour, day) that regenerates the window; plus a 'today' mode that syncs to the visitor's local clock so the page shows your window at their current hour.",
+  "risk": "Fast-moving content (people, cars) becomes ghosty; if capture is inconsistent (phone moved), alignment breaks (fix: keep camera fixed, use a simple homography alignment). Low technical risk, the risk is discipline to capture for 3 weeks.",
+  "sources": [
+   "https://github.com/haochen-rye/NeRV",
+   "https://github.com/lyonsno/moge-webgpu",
+   "https://github.com/ArthurBrussee/brush"
+  ],
+  "uses": [
+   "Depth Anything 3 Small (Transformers.js)",
+   "BiRefNet dynamic 1024 (browser cutout / matting)",
+   "MoGe-2 WebGPU + Three.js light-interaction"
+  ]
+ },
+ {
+  "title": "Still-Life Dynamics: photos of your plants that breathe in the browser",
+  "one_liner": "Train a small Generative-Image-Dynamics-style motion-spectrum net on videos of your own apartment (plants, curtains, steam from your cup), so any still photo you take later animates as a seamless cinemagraph rendered by ogl WebGL warping.",
+  "wow": "Every still photo on the blog is quietly alive: the monstera sways, the curtain lifts, the coffee steam curls, in an infinite non-repeating loop that responds to the mouse (push the plant, it swings back). No video files are shipped, just a 20 MB model that predicts motion from pixels plus a WebGL warp shader.",
+  "train_what": "From scratch: a ~15-25M param U-Net that predicts a spectral volume (K=16 frequency bands of 2D optical flow) from a single RGB image; inference-time integration + warping happens in a WebGL fragment shader (ogl).",
+  "method": "from-scratch",
+  "data_plan": "Own data: 120-200 clips of 8-12 seconds at 30 fps of your own apartment and desk objects on a tripod (plants, curtains, laundry, steam, water in a glass, hanging cables). Compute dense flow with RAFT (PyTorch MPS), FFT along time to get per-pixel motion spectra, keep the 16 lowest bands. Augment with crops/flips. ~5k training pairs (frame0, spectral volume). Optionally add 200 clips generated by Wan2.2-TI2V-5B (Lightning) from your own stills to widen the object mix.",
+  "mac_plan": "RAFT flow extraction on MPS ~3 h; U-Net training on MPS at 256-384 px, batch 8, ~8-12 h (bf16, ~12 GB). Export ONNX; BiRefNet in-browser to keep the static background static. Two weekends including the ogl warp shader.",
+  "demo": "A formless page component 'living stills': drop any photo from your apartment and it breathes; mouse-interaction adds an impulse to the modal coordinates. Side-by-side toggle: predicted flow field visualized as a WebGL vector map.",
+  "risk": "Flow-quality on thin structures (leaves) is noisy -> jelly artifacts; mitigate by masking to segmented plant/curtain regions (SAM 3 text-prompt) and training at 256 px first. Warping holes when motion is large; clamp amplitudes.",
+  "sources": [
+   "https://generative-dynamics.github.io/",
+   "https://github.com/princeton-vl/RAFT",
+   "https://github.com/lpalbou/mlx-gen"
+  ],
+  "uses": [
+   "SAM 3 / SAM 3.1 text-prompted segmentation",
+   "BiRefNet dynamic 1024 (browser cutout / matting)",
+   "Wan2.2-TI2V-5B in MLX (mlx-video / mlx-gen) + 4-step Lightning LoRA"
+  ]
+ },
+ {
+  "title": "Cursor Face: a 2M-param avatar of yourself distilled from LivePortrait, reacting to scroll and typing",
+  "one_liner": "Use LivePortrait as a teacher to generate tens of thousands of expression frames of your own face, then train a tiny keypoint-to-face decoder that runs at 60 fps in the blog and reacts to the visitor's cursor, scroll speed and time of day.",
+  "wow": "In the blog corner sits a 160 px you. Move the mouse and the eyes follow; scroll fast and the eyebrows rise; stop for 10 seconds and it yawns; visit at 2 AM and it looks sleepy. It is a learned generative model of your face, not a sprite sheet, and the whole thing is a 4 MB ONNX file.",
+  "train_what": "Distillation: teacher = LivePortrait (MPS path) producing (implicit keypoints, rendered frame) pairs of your face; student = from-scratch ~2M param conv decoder (keypoint/pose vector of ~70 dims -> 160x160 RGBA face) trained with L1 + LPIPS. Plus a 3-layer 'behavior' MLP mapping (cursor dx/dy, scroll velocity, idle time, hour) -> pose vector, trained on hand-authored rules + noise.",
+  "method": "distill",
+  "data_plan": "1 to 3 selfies of yourself as source. Driving: record 15 minutes of your own webcam expressions plus ~40 driving clips; run LivePortrait to get ~25k frames labeled with the exact keypoint/expression vectors it used. Cut out with BiRefNet for RGBA. Behavior MLP data is synthetic (5k samples from simple rules with jitter).",
+  "mac_plan": "LivePortrait on MPS ~10 fps -> ~1 h to produce 25k frames. Student training in PyTorch MPS, batch 64 at 160 px, ~3-5 h, <6 GB. ONNX export + Transformers.js/ORT-web WebGPU. One weekend plus an evening for the interaction layer.",
+  "demo": "Formless blog widget: your reactive face in the header/footer; a debug page shows the keypoint sliders so visitors can puppeteer you (bounded to your own face only).",
+  "risk": "Student decoder blurs teeth/eyes at extremes -> restrict pose range to what the teacher saw; tie to RGBA masking so hair edges do not shimmer. Ethically fine since it is your own face, but add a note in the page.",
+  "sources": [
+   "https://github.com/KwaiVGI/LivePortrait",
+   "https://github.com/ZhengPeng7/BiRefNet",
+   "https://onnxruntime.ai/docs/tutorials/web/"
+  ],
+  "uses": [
+   "LivePortrait (MPS path + MLX weight port)",
+   "BiRefNet dynamic 1024 (browser cutout / matting)",
+   "MediaPipe Face Landmarker (tasks-vision) in-browser makeup"
+  ]
+ },
+ {
+  "title": "Your Hand, Live: a stroke-sequence model of how you draw, sketching in real time on the page",
+  "one_liner": "Record your own doodles as timed pen strokes, fine-tune a small Sketch-RNN/decoder-only stroke transformer pretrained on Quick, Draw!, and let the blog draw desk objects, plants and bottles in your handwriting with your real hesitations and speed.",
+  "wow": "The blog index draws itself: a pen appears and sketches a cosmetic bottle or your monstera, stroke by stroke, pausing where you pause, overshooting the way you do. Refresh and it draws a different one. Visitors can type 'bottle', 'cup', 'cat' and watch it draw in your hand.",
+  "train_what": "Pretrain from scratch a ~6M param decoder-only transformer over (dx, dy, dt, pen-state) tokens on Quick, Draw! (CC BY), then fine-tune (full, tiny model) on your own strokes; time deltas are a first-class token so pacing is learned.",
+  "method": "full",
+  "data_plan": "Own data: a Canvas page in formless that records pointerevents with timestamps; draw 250-400 doodles over two evenings (30 categories: desk objects, plants, beu bottles, your route landmarks) with an iPad or trackpad. Pretraining data: 30 matching Quick, Draw! categories, 2k sketches each (60k), which have no timing, so dt is masked for pretraining and learned only from your data.",
+  "mac_plan": "PyTorch MPS or MLX; pretraining ~2 h, fine-tune 20 min, <4 GB. Export ONNX (or a hand-written MLX->JS sampler, the model is tiny); runs in-browser with ORT-web WASM without WebGPU.",
+  "demo": "Formless: a 'drawing index' where each post's cover is drawn live in your hand, plus a text box 'draw a ...' that samples a sketch of your requested object.",
+  "risk": "Under 300 samples the model may just memorize; keep the pretrain and use dropout + category conditioning. If your drawings are terse, generated sketches look sparse (acceptable, that is the style).",
+  "sources": [
+   "https://arxiv.org/abs/1704.03477",
+   "https://github.com/googlecreativelab/quickdraw-dataset",
+   "https://huggingface.co/docs/transformers.js"
+  ],
+  "uses": [
+   "Trazor (in-browser raster-to-SVG)",
+   "HiVG-3B (Hierarchical SVG Tokenization)"
+  ]
+ },
+ {
+  "title": "Beu Turntable LoRA: product-spin video of your own cosmetic bottles with LTX-2 on MLX",
+  "one_liner": "Photograph your own bottles, lift them to 3D with TRELLIS.2, render thousands of synthetic 360-degree spins with material variants, and train an LTX-2 V2V/T2V LoRA (ltx-2-mlx trainer) so one product still becomes a clean studio spin with a label that stays legible.",
+  "wow": "Upload a single packshot from beu, get a 4-second seamless turntable: the reflection tracks the bottle, the label text does not swim, the cap catches the key light on the way round, and the loop closes perfectly. The visitor can drag to pick a stopping angle.",
+  "train_what": "LoRA (rank 32) on LTX-2.3 22B Distilled via ltx-2-mlx's built-in flow-matching LoRA training (V2V strategy with an edge/depth IC-LoRA reference, or plain T2V + image conditioning), specialized to 'turntable' motion and studio reflections.",
+  "method": "lora",
+  "data_plan": "Synthetic from own data: 30-50 of your own bottles/jars photographed with the iPhone -> TRELLIS.2 (GLB) or TripoSplat (splat) -> three.js/Blender headless renders of 360 spins at 24 fps, 96 frames each, 6 lighting rigs x 4 material swaps (glass, frosted, matte, metal) using DealMaTe-style swatches on the base texture; ~4k clips. Captions via CapRL-Qwen3VL-2B; filter with UnifiedReward-Flex 4B. Add 100 real handheld turntable clips of the same bottles for realism.",
+  "mac_plan": "TRELLIS.2 ~2 min/object on Mac; rendering ~1 h. ltx-2-mlx LoRA training at 512 px, 49 frames, bf16 transformer with block streaming: ~60-90 GB, roughly 1.5-3 s/step, 4k-6k steps -> 3-5 h per run. Two weekends: one for the data pipeline, one for training and the web viewer.",
+  "demo": "Beu page: spin gallery of your own products and a drop-zone 'spin my bottle'; served as short mp4 plus a Spark/three.js scrub control.",
+  "risk": "ltx-2-mlx training is pre-1.0 (README says LoRA fine-tuning exists for T2V/V2V); expect API churn and to write a dataset loader. Label text legibility under rotation is the hard part; add an OCR consistency filter (GLM-OCR) on rendered frames.",
+  "sources": [
+   "https://github.com/dgrauet/ltx-2-mlx",
+   "https://github.com/microsoft/TRELLIS.2",
+   "https://github.com/haha-lisa/DealMaTe"
+  ],
+  "uses": [
+   "LTX-2.3 22B Distilled + Cinemagraph LoRA via ltx-2-mlx",
+   "TRELLIS.2 (Microsoft) via trellis.cpp / trellis-mac / mlx-spatial",
+   "CapRL-Qwen3VL-2B (CapRL 2.0, ICLR 2026)",
+   "UnifiedReward-Flex-qwen3vl-4b",
+   "GLM-OCR on MLX (0.9B)"
+  ]
+ },
+ {
+  "title": "Season Scrubber: a continuous time-of-year LoRA for FLUX.2 Klein on your own city walks",
+  "one_liner": "Distill Qwen-Image-Edit-2511's season and time-of-day edits into a Klein 4B LoRA that takes a numeric token (day-of-year, hour) so your own walking-route photos can be scrubbed continuously from January dawn to August dusk.",
+  "wow": "Your everyday commute route in Seoul as one photo with two sliders. Drag and the ginkgo trees on your street go green -> yellow -> bare, snow settles, the sun angle shifts, shop lights come on at 19:00 in winter but not in summer; the composition and signage stay yours because the model was trained on your own photos.",
+  "train_what": "LoRA (rank 32-64) on FLUX.2 Klein 4B via mflux training, image-conditioned (source photo in context) with a caption template 'doy=<D> hour=<H>' quantized to 24 x 12 buckets so interpolation is continuous.",
+  "method": "distill",
+  "data_plan": "Own data: 150-250 photos from your walks and neighborhood (phone). Teacher: Qwen-Image-Edit-2511 with Lightning 4-step LoRA plus the dx8152 Relight LoRA generates 8-12 season/time variants per photo (~2k pairs) on MLX (~15-25 s each, ~10 h unattended). Judge with UnifiedReward-Flex 4B to drop layout drift, DINOv3 to enforce structure similarity, keep ~1.5k pairs.",
+  "mac_plan": "mflux Klein 4B LoRA training at 768 px, bf16: ~30-40 GB, ~2-3 s/step, 3k steps -> ~2.5 h per run. Total: one weekend for generation + filtering, one for training and the web scrubber (precomputed 24-frame ladders shown in the ogl hero, with on-demand generation on the Mac behind an API).",
+  "demo": "Formless hero: your own street with a circular season dial and a clock; visitors scrub; a 'now' button snaps to Seoul's real date and time. Also a 12-month grid poster of the same corner.",
+  "risk": "Teacher drift (moved cars, changed signs) leaks into the LoRA; the DINOv3 + VLM filter is essential. Continuous interpolation between buckets may flicker; fix with frame-to-frame latent noise sharing.",
+  "sources": [
+   "https://huggingface.co/Qwen/Qwen-Image-Edit-2511",
+   "https://huggingface.co/dx8152/Qwen-Image-Edit-2509-Relight",
+   "https://github.com/filipstrand/mflux"
+  ],
+  "uses": [
+   "Qwen-Image-Edit-2511 (+ Lightning 4-step LoRA, MLX via mflux/mlx-gen)",
+   "Qwen-Image-Edit-2509/2511 + Relight LoRA (dx8152) via mflux",
+   "UnifiedReward-Flex-qwen3vl-4b",
+   "DINOv3 ViT-S/16 in the browser"
+  ]
+ },
+ {
+  "title": "Whiteboard → Mermaid (사진 한 장이 살아있는 다이어그램이 되는 카메라)",
+  "one_liner": "Fine-tune a 2B VLM so a phone photo of your own whiteboard/notebook architecture sketch comes out as valid Mermaid that the blog page renders and lets you edit live.",
+  "wow": "Visitor points the webcam at any hand-drawn boxes-and-arrows sketch; within seconds the page shows the same diagram redrawn in Mermaid, editable in a text pane, with nodes still moving as you tweak the source. Nothing leaves the browser.",
+  "train_what": "Qwen3.5-2B (native-multimodal VLM). Fallback for the sub-200MB visitor tier: LFM2.5-VL-450M with the same data.",
+  "method": "lora",
+  "data_plan": "Fully synthetic with a small real tail. (1) Generate 4,000 random Mermaid graphs (flowchart/sequence/ER, 3-14 nodes, Korean+English labels sampled from your own blog/git identifiers) with a script. (2) Render them via Excalidraw/rough.js so they look hand-drawn, apply random perspective warp, marker stroke jitter, and paste onto ~30 photos of your own whiteboards and Moleskine pages; ~40% additionally pass through Qwen-Image-Edit-2511 with 'this drawing is on a whiteboard photographed by a phone, glare, smudges' to close the photo gap. (3) 150 real photos of your own sketches, transcribed to Mermaid by hand (~3 hours). Train/val split by graph seed; 200 held-out real photos for the exact-parse metric (renders without error, node/edge F1).",
+  "mac_plan": "mlx-vlm LoRA on Qwen3.5-2B bf16 (rank 16, all attention+MLP in the LLM, vision tower frozen): ~14 GB unified memory, 4k samples × 3 epochs ≈ 3-4 hours on M4 Max. Merge, export to ONNX with optimum (q4f16, ~1.3 GB, click-to-load tier) for Transformers.js v4 WebGPU; also keep the MLX build as a CLI (`sml whiteboard photo.jpg > diagram.mmd`). Total: one weekend for data, one for training + export.",
+  "demo": "Blog page (formless) with camera/drop zone → Mermaid source + rendered diagram side by side, plus a 'before/after LoRA' toggle showing the base model's broken output on the same photo. Short screen recording of pointing at a real whiteboard.",
+  "risk": "ONNX export of a freshly merged Qwen3.5-2B VLM may need the same graph surgery onnx-community used; mitigate by starting from their export recipe or falling back to LFM2.5-VL-450M. Sequence diagrams with many crossing arrows stay hard; scope to flowcharts first.",
+  "uses": [
+   "Qwen3.5-2B native-multimodal VLM (Transformers.js ONNX + MLX)",
+   "LFM2.5-VL-450M (WebGPU)",
+   "Qwen-Image-Edit-2511 (+ Lightning 4-step LoRA, MLX via mflux/mlx-gen)"
+  ],
+  "sources": [
+   "https://huggingface.co/onnx-community/Qwen3.5-2B-ONNX-OPT",
+   "https://github.com/Blaizzy/mlx-vlm",
+   "https://huggingface.co/LiquidAI/LFM2.5-VL-450M"
+  ]
+ },
+ {
+  "title": "동글 서랍 (Dongle Drawer): 내 케이블·어댑터 전용 탐지기",
+  "one_liner": "Fine-tune RF-DETR Seg on the actual contents of your own cable drawer so the webcam labels each item by its personal name ('LG 모니터 되는 HDMI 젠더', 'Studio 전원선') and counts inventory.",
+  "wow": "A live webcam view over a messy drawer where every dongle gets its own nickname and a check mark against your inventory list; type 'USB-C to DisplayPort' and the matching item glows. Runs in the browser on an ONNX export.",
+  "train_what": "RF-DETR Seg (Nano/Small) — object detection + instance masks, ~30 personal classes.",
+  "method": "full",
+  "data_plan": "Own data, auto-labelled. Photograph each of ~30 objects on 3 backgrounds × 10 poses (900 shots, 1 hour with a phone on a tripod). Cutouts via BiRefNet, then paste-composite 3,000 synthetic drawer scenes (random overlap, rotation, occlusion, lighting) onto 20 real drawer/desk photos — masks and boxes come free from the compositing. SAM 3 text prompts ('cable', 'adapter') generate first-pass masks for the 150 real cluttered-drawer photos that become the test set, corrected by hand. Class names are your own nicknames from a YAML file.",
+  "mac_plan": "rfdetr package on PyTorch MPS (torch 2.14): RF-DETR Nano at 512px, batch 8, ~3k images × 30 epochs ≈ 2-3 hours; ~10 GB. If MPS training stalls on a deformable-attention op, train the head-only on cached backbone features (minutes). Export to ONNX → ONNX Runtime Web (WebGPU), ~30-60 MB, visitor tier. One weekend.",
+  "demo": "Browser page with webcam + inventory sidebar (counts, 'missing since last scan'), a search box that highlights a category, and a video of the drawer scan. Optional: same model on MLX (RF-DETR MLX port) as a `sml drawer` CLI that appends to a CSV inventory.",
+  "risk": "Thin black cables all look alike; nickname-level classes will need distinctive-connector crops to converge. Paste-composites can overfit to edge artifacts — keep the 150 real photos as the only reported metric.",
+  "uses": [
+   "RF-DETR Seg + Keypoint on MLX",
+   "BiRefNet dynamic 1024 (browser cutout / matting)",
+   "SAM 3 / SAM 3.1 text-prompted segmentation (browser INT8 ONNX + MLX)"
+  ],
+  "sources": [
+   "https://github.com/roboflow/rf-detr",
+   "https://github.com/ZhengPeng7/BiRefNet",
+   "https://github.com/facebookresearch/sam3"
+  ]
+ },
+ {
+  "title": "목마름 게이지 (Thirst Gauge): 내 화분 사진으로 '물 준 지 며칠'을 회귀하는 모델",
+  "one_liner": "Train a small head on DINOv3 features using a month of daily photos of your own plants plus your watering log, so a webcam shot gives a 'days since watering' estimate and a water-now alert per plant.",
+  "wow": "A page where each of your plants has a live gauge that visibly climbs as leaves droop; hovering shows the model's attention on the drooping leaves. Visitors can drag a slider through the 30-day time-lapse and watch the predicted thirst track the real watering events.",
+  "train_what": "DINOv3 ViT-S/16 backbone (frozen, then last 2 blocks LoRA) + per-plant MLP regression head for days-since-watering and a leaf-droop keypoint head.",
+  "method": "adapter",
+  "data_plan": "Your own data: 5 plants × 3 fixed camera positions × 2 shots/day × 35 days ≈ 1,050 photos, captured by a cron on the Mac Studio with a USB webcam or an old iPhone (Continuity Camera). Labels come from a watering log in your calendar (Google Calendar events 'watered ficus'). Augment with day/night lighting, crop jitter, and Qwen-Image-Edit-generated 'wilting' variants for the rare high-thirst end (~300). Evaluate by leave-one-week-out MAE in days.",
+  "mac_plan": "PyTorch MPS or MLX: cache DINOv3 CLS+patch features once (1,050 images, ~2 min), train MLP heads in seconds; LoRA on the last two blocks ~2 GB, 20 minutes. Export head to a tiny ONNX (<1 MB) and use onnx-community DINOv3 ViT-S/16 ONNX (~90 MB) in Transformers.js — visitor tier. Capture takes 5 weeks of wall time, but only one weekend of actual work.",
+  "demo": "Blog widget: per-plant gauges from live webcam, a 30-day time-lapse scrubber with predicted vs. actual watering lines, and a 'water now' badge. Plus a menubar/cron script that posts to your Slack DM when any plant crosses the threshold.",
+  "risk": "Signal may be weak on plants that do not visibly droop (succulents); pick a peace lily / pothos that clearly wilts. Lighting drift across weeks can dominate — keep fixed camera + flash or normalise per-position.",
+  "uses": [
+   "DINOv3 ViT-S/16 in the browser",
+   "Qwen-Image-Edit-2511 (+ Lightning 4-step LoRA, MLX via mflux/mlx-gen)"
+  ],
+  "sources": [
+   "https://huggingface.co/onnx-community/dinov3-vits16-pretrain-lvd1689m-ONNX",
+   "https://github.com/facebookresearch/dinov3"
+  ]
+ },
+ {
+  "title": "바둑판 → SGF 라이브 기보 (phone over the board, game record in the browser)",
+  "one_liner": "Fine-tune RF-DETR Keypoint for board corners plus a stone detector on your own physical board, then run it in the browser to turn any overhead phone shot into a live SGF record with move order.",
+  "wow": "Set a phone above a real baduk board; each move you place appears instantly on a clean digital board in the page, with the SGF growing move by move and a replay scrubber. Works on glare, tilted angles, and your specific stones and wood.",
+  "train_what": "RF-DETR Keypoint (4 board corners + 19×19 grid pose) and RF-DETR Nano detector (black/white stone), trained jointly or as two small models.",
+  "method": "full",
+  "data_plan": "Own board, semi-automatic labels. Play through 40 professional SGF games physically for ~5 moves each with the camera fixed → 800 photos where the ground-truth stone layout is known from the SGF, and corner clicks once per camera position give the homography that projects labels onto the image. Add 300 hand-held phone shots at random angles (labels via re-clicking corners), plus 2,000 synthetic images: stone-cutouts composited onto board photos with random layouts under randomised homographies and shadows (GPSDiffusion-style shadows optional). Test set: 100 photos of real games at a Korean gidojang / cafe.",
+  "mac_plan": "rfdetr on PyTorch MPS, 384px, ~3k images × 40 epochs ≈ 2-3 hours, ~8 GB. Export both heads to ONNX → ONNX Runtime Web WebGPU (<40 MB total). Grid-to-stone assignment and move-diff logic in plain JS (~200 lines). One and a half weekends.",
+  "demo": "Browser page: camera feed with detected grid overlay, clean SVG board mirror, SGF download/copy, move-order replay; a 30-second video of a real game being recorded hands-free. Bonus: pipe positions to KataGo running via MLX for an on-page winrate bar.",
+  "risk": "Hands and shadows occluding the board during moves — add a 'stable frame' gate (no motion for 1 s) before committing a move. Move-order inference breaks on captures; handle by diffing with capture rules.",
+  "uses": [
+   "RF-DETR Seg + Keypoint on MLX",
+   "BiRefNet dynamic 1024 (browser cutout / matting)",
+   "GPSDiffusion-SDXL object shadow generation"
+  ],
+  "sources": [
+   "https://github.com/roboflow/rf-detr",
+   "https://github.com/bcmi/GPSDiffusion-Object-Shadow-Generation-SDXL"
+  ]
+ },
+ {
+  "title": "De-Chart: 대시보드 스크린샷을 다시 CSV로 (Grafana/Langfuse 캡처 → 데이터)",
+  "one_liner": "LoRA a 2B VLM on thousands of self-rendered charts with known data so a pasted Slack screenshot of a Grafana/Langfuse/Excel chart comes back as a CSV table and a re-plotted, editable chart.",
+  "wow": "Drop a blurry chart screenshot from a Slack thread; the page returns the numbers as a table, replots them with your dataviz palette, and lets you flip axes or ask 'what was the peak?'. Runs client-side; nothing from work leaves the machine.",
+  "train_what": "Qwen3.5-2B VLM (grounded numeric reading), rank-32 LoRA on LLM + last vision blocks.",
+  "method": "lora",
+  "data_plan": "Programmatic, ground-truth-by-construction. Render 12,000 charts with matplotlib/plotly/Recharts (line, bar, stacked, dual-axis, log scale, heatmap tiles) from random-but-plausible series, mimicking Grafana/Langfuse/Datadog/Excel themes (dark mode, legends, Korean labels, KST timestamps); 20% get screenshot corruption (JPEG, 1.5× downscale, Slack preview crop, cursor tooltip overlay) via a tiny augmentation pipeline. Target = JSON {series: {name: [(x,y)]}, axes, units}. Real test set: 120 screenshots from your own Grafana/Langfuse (CH memory graphs you already debugged), values typed by hand from the source panels.",
+  "mac_plan": "mlx-vlm LoRA on Qwen3.5-2B bf16, 12k samples × 2 epochs, ~16 GB, ≈ 6-7 hours (run overnight). Evaluate with series-wise MAPE. Merge → ONNX q4f16 (~1.3 GB, click-to-load) for Transformers.js WebGPU; keep the MLX build as `sml dechart shot.png` for daily work. Two weekends including a Recharts renderer to match your blog's palette.",
+  "demo": "Blog page: paste/drop → extracted table + re-rendered chart (Recharts, dataviz palette) + a small question box; a side-by-side of base model vs. LoRA on the same Grafana capture; error histogram over the 120 real screenshots.",
+  "risk": "Numeric precision from pixels caps at ~2-3% on dense line charts; report it honestly. Exotic panels (flame graphs, gauges) out of scope in v1.",
+  "uses": [
+   "Qwen3.5-2B native-multimodal VLM (Transformers.js ONNX + MLX)",
+   "UnifiedReward-Flex-qwen3vl-4b"
+  ],
+  "sources": [
+   "https://huggingface.co/onnx-community/Qwen3.5-2B-ONNX-OPT",
+   "https://github.com/Blaizzy/mlx-vlm",
+   "https://github.com/CodeGoat24/UnifiedReward"
+  ]
+ },
+ {
+  "title": "내 손글씨 OCR: 노트 페이지 → 마크다운 (한글·영어·코드 혼용)",
+  "one_liner": "Fine-tune GLM-OCR (0.9B) on photos of your own handwritten notebook pages so it transcribes your mixed Korean/English/code shorthand into Markdown with headings, bullets and fenced code, then run it on MLX as a notebook-to-blog pipeline.",
+  "wow": "Photograph a page of scrawled meeting notes; the page shows the transcript typed out in your writing style, arrows turned into '→', boxes into bullet groups, and a snippet of pseudo-code fenced correctly. A 'base GLM-OCR vs. mine' toggle shows the base model garbling your ㅊ and ㅈ.",
+  "train_what": "GLM-OCR 0.9B (vision-encoder + decoder), LoRA on decoder + projector.",
+  "method": "lora",
+  "data_plan": "Own handwriting, bootstrapped. (1) 40 real pages from your notebooks (~900 lines), transcribed with base GLM-OCR then corrected by hand (~3 h). (2) Build a personal handwriting font from those pages (character crops → per-glyph SVG via Trazor/HiVG, or a scan-to-font tool) with 3 variants per glyph, and render 6,000 synthetic pages from your own blog posts and git commit messages: random line spacing, slant, arrow/box doodles, pen bleed, phone photo warp, paper texture from 15 photographed blank pages. (3) 30 held-out real pages as the CER/WER test set. Markdown structure labels come from the rendering script.",
+  "mac_plan": "mlx-vlm LoRA on GLM-OCR 0.9B bf16 (rank 16), 6k pages × 3 epochs at 1024px ≈ 3-4 hours, ~10 GB. Serve on MLX as `sml notes page.jpg > notes.md` plus a watch-folder that drops Markdown into the formless blog's drafts. Optional browser export via ONNX (0.9B q4 ≈ 600 MB, click-to-load). One weekend for font + rendering, one for training and eval.",
+  "demo": "Blog page with a page-photo gallery → transcript diff (base vs. LoRA) with CER numbers, and the handwriting font itself downloadable as a TTF; a 20-second clip of photographing a page and the Markdown appearing in the blog drafts folder.",
+  "risk": "Synthetic font pages may not cover your real variability (rushed vs. neat); keep at least 40 real pages in training and monitor CER on the real 30. Diagrams and tables are out of scope — emit them as image placeholders.",
+  "uses": [
+   "GLM-OCR on MLX (0.9B)",
+   "Trazor (in-browser raster-to-SVG)",
+   "HiVG-3B (Hierarchical SVG Tokenization)"
+  ],
+  "sources": [
+   "https://huggingface.co/zai-org/GLM-OCR",
+   "https://github.com/Blaizzy/mlx-vlm",
+   "https://github.com/PhenX/Trazor"
+  ]
+ },
+ {
+  "title": "My Hand Writes Your Text",
+  "one_liner": "An SVG generator fine-tuned on his own handwriting (hangul + latin) so any sentence a visitor types is drawn stroke by stroke in his hand, live in the blog.",
+  "wow": "Visitor types a comment; the page answers by physically writing it out in his handwriting as animated SVG strokes (stroke-dasharray), pen pressure and all. Not a font: ligatures and syllable spacing vary like a real hand. Strokes are vector, so the ogl hero can extrude/warp them.",
+  "train_what": "OmniSVG 1.1 4B (Qwen2.5-VL backbone + SVG tokenizer) text-to-SVG head",
+  "method": "lora",
+  "data_plan": "Weekend 1, ~2 hours of writing: ~700 most frequent hangul syllables + 52 latin + digits + punctuation, 3 samples each on a printed grid sheet (~2,300 glyphs). Photograph sheets, crop by grid, cutout with BiRefNet, trace to clean paths with Trazor (in-browser, MIT) then simplify/normalize to a fixed viewBox. Synthetic word/sentence level set: compose glyph SVGs into 30k lines sampled from his own blog posts and commit messages (natural Korean/English mix), with random baseline jitter, spacing and slant so the model learns his rhythm, not a grid. Pairs = (text prompt 'handwriting: <line>', SVG token sequence).",
+  "mac_plan": "PyTorch 2.14 MPS with OmniSVG's training script, LoRA rank 64 on the LM + SVG token embeddings, bf16 base ~8 GB, peak ~30 GB with bs 8, seq 2k. ~1.5 s/step, 12k steps ≈ 5-6 h. Inference exported through mlx-vlm for the blog API (or precompute a glyph cache and run a small distilled stroke model in the browser).",
+  "demo": "Blog page /hand: input box → animated handwritten SVG; 'sign my post' button that writes the visitor's name; downloadable SVG. Side panel shows the 2,300 real glyph scans as the dataset.",
+  "risk": "OmniSVG token length explodes for long lines (split by word); hangul jamo composition may be inconsistent — fallback: rasterize path via Z-Image-Turbo/Ideogram LoRA on the same scans (mflux, 2 h) and use Trazor to vectorize at runtime.",
+  "sources": [
+   "https://github.com/OmniSVG/OmniSVG",
+   "https://github.com/PhenX/Trazor",
+   "https://github.com/ZhengPeng7/BiRefNet",
+   "https://github.com/Blaizzy/mlx-vlm"
+  ],
+  "uses": [
+   "OmniSVG 1.1",
+   "Trazor",
+   "BiRefNet dynamic 1024",
+   "Z-Image-Turbo (fallback)"
+  ]
+ },
+ {
+  "title": "Desk Clock Field",
+  "one_liner": "A from-scratch neural field of his real desk with a time axis: (x, y, hour, day) → RGB, trained on four days of tripod photos, running as a GLSL shader so the blog hero shows his desk lit at the visitor's current Seoul time.",
+  "wow": "The hero image is not a photo, it is a 900 KB weight file evaluated per pixel in the fragment shader. Sun crawls across the monstera in real time; drag horizontally to scrub 24 h, vertically to switch between a rainy and a sunny day; the plants and cup positions are the real ones. Zoom in and it stays smooth (continuous field).",
+  "train_what": "Tiny multi-resolution hash-grid encoder + 4x64 MLP (Instant-NGP style, ~250k params) written in MLX; optional second head that emits a Marigold-IID-style shading/albedo split for a 'lights off' toggle",
+  "method": "from-scratch",
+  "data_plan": "iPhone on a tripod via Continuity Camera or an old phone, one 1024 px frame every 5 min for 4 days = ~1,150 frames (a cron + ffmpeg/imagesnap script). Align residual camera drift with a homography estimated from DINOv3 ViT-S/16 features. Inputs are pixel coordinates + hour-of-day (sin/cos) + day index; targets are RGB. Optionally run Marigold-IID on 24 keyframes to supervise an albedo/shading decomposition head.",
+  "mac_plan": "MLX training on M4 Max: 1,150 × 1M pixels sampled 2^18 rays/step, 20k steps ≈ 25-40 min, memory < 4 GB. Export hash-grid tables as RGBA float textures and MLP weights as uniform arrays into the existing ogl (WebGL2) pipeline in formless; 1440 px full-screen eval at 60 fps on Safari 26. Total: one weekend including the capture wait.",
+  "demo": "formless hero at /: live desk keyed to Asia/Seoul time; scrub gesture; 'compress' badge comparing 1,150 JPEGs (1.4 GB) to the 900 KB field. A second route shows the raw capture grid.",
+  "risk": "Cloud-cover days make the hour axis ambiguous (add day-conditioning; 4 days minimum). Pure SIREN blurs — use the hash grid. Exporting hash grids to WebGL textures needs care with float precision (use RGBA16F).",
+  "sources": [
+   "https://github.com/ml-explore/mlx",
+   "https://huggingface.co/prs-eth/marigold-iid-lighting-v1-1",
+   "https://huggingface.co/onnx-community/dinov3-vits16-pretrain-lvd1689m-ONNX",
+   "https://github.com/oframe/ogl"
+  ],
+  "uses": [
+   "MLX",
+   "Marigold-IID",
+   "DINOv3 ViT-S/16",
+   "ogl WebGL"
+  ]
+ },
+ {
+  "title": "One-Apartment World Model",
+  "one_liner": "Splat his apartment with an iPhone walkthrough, render thousands of camera-controlled clips from the splat, and LoRA-tune SANA-WM so a visitor can drive through his flat from a single photo with WASD — a world model that has only ever seen one home.",
+  "wow": "Give the model a photo of the sofa, press W, turn left, and it hallucinates the correct kitchen behind the doorway because it memorized the floor plan. Side by side, the Spark splat shows the ground truth; the model's 'dreams' diverge in delightful ways (a second balcony) and the visitor can rate them.",
+  "train_what": "SANA-WM (NVIDIA camera-controlled image-to-video world model) via sana-wm-mlx for inference; LoRA on the DiT attention/camera-conditioning blocks",
+  "method": "lora",
+  "data_plan": "Weekend 1: 15-minute iPhone walk through the apartment → splat-local or Brush → 3DGS scene (native, ~1-2 h). Then render 6,000 clips of 16 frames at 480p along random but collision-free camera trajectories (Brush/Spark headless render with known poses) and convert poses into SANA-WM's camera action tokens. Add 300 real phone video snippets to keep textures honest. Auto-caption 1 in 10 clips with CapRL-Qwen3VL-2B for text conditioning.",
+  "mac_plan": "3DGS: metal-gauss/Brush, < 30 min. LoRA: PyTorch 2.14 MPS on the SANA-WM training loop, rank 64, bf16, 16 frames at 480p, bs 1 + grad accumulation; ~8-10 s/step, 3,000 steps ≈ 8 h overnight, peak ~55 GB. Inference through sana-wm-mlx on the Mac serving frames to the browser over WebSocket (~1-2 fps, fine for turn-based exploration).",
+  "demo": "Blog page /flat: single photo, WASD/arrow keys, streamed frames from the Mac, Spark splat viewer alongside for truth; a heat-map of 'where the model gets lost'.",
+  "risk": "Highest risk: SANA-WM training code may hit unsupported MPS ops (fallback: Wan2.2-TI2V-5B 4-step LoRA in mlx-gen with directional text prompts 'move forward/turn left' as the control signal). Rendered splat frames can cause the model to learn splat artifacts — mix in real video.",
+  "sources": [
+   "https://github.com/NVlabs/Sana",
+   "https://github.com/michael-L-i/splat-local",
+   "https://github.com/ArthurBrussee/brush",
+   "https://github.com/sparkjsdev/spark",
+   "https://github.com/lpalbou/mlx-gen"
+  ],
+  "uses": [
+   "SANA-WM + sana-wm-mlx",
+   "splat-local",
+   "Brush",
+   "Spark 2.x",
+   "CapRL-Qwen3VL-2B",
+   "Wan2.2-TI2V-5B (fallback)"
+  ]
+ },
+ {
+  "title": "My Objects, Any Scene",
+  "one_liner": "Photograph the 15 objects on his desk once, lift each to a Gaussian splat with TripoSplat, render hundreds of consistent views for free, and train a FLUX.2 Klein consistency LoRA so his exact mug, keyboard and monstera appear in any scene a visitor describes.",
+  "wow": "Type 'on the surface of Mars' and it is unmistakably HIS mug — the chip on the rim, the coffee ring — not a generic mug. Toggle to the source splat spinning in Spark to prove the model learned the real thing. The same pipeline is reused for beu: a cosmetic bottle photographed once becomes a subject the model can place in any campaign image.",
+  "train_what": "FLUX.2 Klein 9B (Flux2-Klein-9B-Consistency as init, or Klein 4B for speed) with a multi-subject LoRA, one trigger token per object",
+  "method": "lora",
+  "data_plan": "Weekend 1: 1-3 photos per object × 15 objects → TripoSplat (mac-native) → splats. Render 48 views per object from Brush/Spark headless with random elevation, background color and HDRI-like tint = 720 synthetic views + 150 real phone photos. Cutouts via BiRefNet, captions via CapRL-Qwen3VL-2B with the trigger token injected ('ckj_mug, a white ceramic mug with a chipped rim, on a marble table, soft window light'). Add 200 regularization images of generic objects generated by Z-Image-Turbo to prevent token bleed. ~1,100 images total.",
+  "mac_plan": "TripoSplat: ~1 min/object. mflux LoRA training on Klein 4B: 3,000 steps at 768 px, rank 32, ~4 h, ~25 GB; on Klein 9B ~9 h, ~45 GB. Inference via mflux in ~6 s/image at 1024 px for the demo server.",
+  "demo": "Page /objects: scene prompt box + object checkboxes; generates with the LoRA; hover an object to open its Spark splat viewer; a 'mistakes' gallery of wrong-mug generations for honesty.",
+  "risk": "Multi-subject LoRAs bleed features between objects (train per-object LoRAs and merge, or cap at 8 objects). TripoSplat's bundled FLUX.2 VAE is non-commercial — fine for a lab post. Splat renders have soft edges; mix in real photos.",
+  "sources": [
+   "https://github.com/VAST-AI-Research/TripoSplat",
+   "https://huggingface.co/dx8152/Flux2-Klein-9B-Consistency",
+   "https://github.com/filipstrand/mflux",
+   "https://github.com/InternLM/CapRL",
+   "https://github.com/sparkjsdev/spark"
+  ],
+  "uses": [
+   "TripoSplat",
+   "Flux2-Klein-9B-Consistency",
+   "mflux",
+   "CapRL-Qwen3VL-2B",
+   "BiRefNet",
+   "Spark 2.x",
+   "Z-Image-Turbo"
+  ]
+ },
+ {
+  "title": "Taste Machine",
+  "one_liner": "A reward model of his own design taste, trained on the revealed preferences buried in his git history (every 'v9 replaced v8' of the formless cover) plus an afternoon of swipe labels, then used to rank and critique generated images the way he would.",
+  "wow": "Visitor generates 8 hero images; the model picks one and rejects the rest with one-line critiques in his voice ('too obviously formless', 'gradient is doing the work the type should'). Then a switch: 'align the generator to me' shows Z-Image outputs re-ranked by his taste versus the vanilla model — visibly different aesthetics.",
+  "train_what": "UnifiedReward-Flex-qwen3vl-4b, pairwise Bradley-Terry LoRA + a short critique head (SFT on his review comments); optional DPO of a Z-Image-Turbo LoRA with this reward as the judge",
+  "method": "reward-model",
+  "data_plan": "Mine git: for every commit in formless/beu/other UI repos that touched components, check out and Playwright-screenshot the page at 1440 and 390 → chronological pairs where the later version is preferred (~600 pairs), with the commit body as the critique text (he writes rationale-heavy bodies). Weekend 1 afternoon: local swipe UI over 1,200 Z-Image-Turbo / Bonsai generations on 30 blog-hero prompts → ~1,500 pairwise labels. Session notes from Claude Code transcripts ('too obvious', chosen/rejected screenshots) as extra critique text. ~2,100 pairs + ~800 critique lines.",
+  "mac_plan": "mlx-vlm or PyTorch MPS LoRA on the 4B VLM, rank 32, bf16 base 8 GB, peak ~24 GB at bs 4; 3 epochs ≈ 3-4 h. Best-of-N reranking runs on the Mac as a small API (1 s/image). Optional DPO of a Z-Image LoRA in mflux: 2,000 steps, ~4 h.",
+  "demo": "Page /taste: prompt → 8 candidates → ranked grid with critiques; 'my taste vs vanilla' toggle; a plot of his taste score across the cover's 9 git versions.",
+  "risk": "Revealed preference is noisy (later isn't always better); require >60% agreement on the swipe set before trusting. Critiques may sound generic — weight the SFT toward his own commit bodies. Small dataset overfits: freeze the vision tower.",
+  "sources": [
+   "https://github.com/CodeGoat24/UnifiedReward",
+   "https://huggingface.co/Tongyi-MAI/Z-Image-Turbo",
+   "https://huggingface.co/prism-ml/bonsai-image-ternary-4B-mlx-2bit",
+   "https://github.com/Blaizzy/mlx-vlm"
+  ],
+  "uses": [
+   "UnifiedReward-Flex-qwen3vl-4b",
+   "Z-Image-Turbo",
+   "Bonsai-Image ternary 4B",
+   "mflux"
+  ]
+ },
+ {
+  "title": "Napkin to Component (in My Codebase)",
+  "one_liner": "A 2B VLM fine-tuned on his own git history — screenshots of every component he ever committed paired with its source — so a paper sketch held to the webcam becomes a Next.js component in his tailwind tokens and ogl style, generated client-side in the browser.",
+  "wow": "Draw a card layout on a napkin, hold it up to the webcam, and the page renders a live component that already uses his `tokens.ts`, his rounded-t-[32px] sheet, his spacing — no server. The model has read 1,500 of his own commits and writes code that looks like his.",
+  "train_what": "Qwen3.5-2B native-multimodal VLM (ONNX/Transformers.js export exists), LoRA on the LM + projector",
+  "method": "lora",
+  "data_plan": "Mine git history of formless, beu, death-clock etc.: for each commit touching src/components, check out, mount the component in isolation with a Playwright harness (he already has e2e), screenshot at 1440 and 390 → (screenshot, source) pairs, ~1,500. Synthesize sketch inputs: Qwen-Image-Edit-2511 with 'redraw as a rough pencil wireframe on paper' (3 variants) plus a cheap Canny/hand-drawn filter for 3 more → ~9,000 (sketch, code) pairs. Include tokens.ts in the system prompt so outputs reference his design system. Hold out the last 50 commits as test.",
+  "mac_plan": "mlx-vlm LoRA on Qwen3.5-2B, rank 64, seq 4k, bs 2; ~1 s/step, 12k steps ≈ 4-5 h, peak ~20 GB. Sketch synthesis with Qwen-Image-Edit-2511 Lightning (4-step) in mflux: 4,500 images at ~5 s = 6 h unattended. Merge LoRA, export ONNX (q4) for Transformers.js v4 / WebGPU; ~1.5 GB download, 8-15 tok/s on Safari 26.",
+  "demo": "Page /napkin: webcam or upload → sketch preview → streaming code → live-rendered component in a sandboxed iframe with his tokens; a gallery of held-out commits: real vs. model.",
+  "risk": "2B may produce syntactically broken TSX (validate with esbuild in-browser, retry once). ONNX export of Qwen3.5-2B multimodal with LoRA merged may need graph fixes; fallback: UI2Code^N 9B LoRA served from the Mac. Synthetic sketches differ from real napkins — add 100 real photos of his own sketches.",
+  "sources": [
+   "https://huggingface.co/onnx-community/Qwen3.5-2B-ONNX-OPT",
+   "https://github.com/Blaizzy/mlx-vlm",
+   "https://huggingface.co/Qwen/Qwen-Image-Edit-2511",
+   "https://github.com/zai-org/UI2Code_N",
+   "https://github.com/huggingface/transformers.js"
+  ],
+  "uses": [
+   "Qwen3.5-2B (Transformers.js ONNX + MLX)",
+   "Qwen-Image-Edit-2511 + Lightning LoRA",
+   "UI2Code^N (fallback)",
+   "mlx-vlm"
+  ]
+ },
+ {
+  "title": "Grown Wire: a 6M-param flow model that sculpts a new hero for every post",
+  "one_liner": "Train a tiny rectified-flow transformer over 3D polyline sets, built from wireframes of your own desk objects, so each post's hero sculpture (the existing Rib JSON the HeroSculpture component already renders) is generated in the browser from the post slug.",
+  "wow": "The hero starts as noise and over ~1.5 s a wire sculpture that has never existed before grows into place; reload and a sibling grows. Each post has its own object, and the model file is 12 MB.",
+  "train_what": "From-scratch rectified-flow transformer (12 layers, d=256, ~6M params) over a fixed set of 32 ribs x 24 points x (x,y,z) plus per-rib weight/tone, conditioned on a 64-d post vector (hash of slug or a pooled text embedding). Same recipe as experiments/01-minrf-web, just on point sets instead of pixels.",
+  "method": "from-scratch",
+  "data_plan": "Photograph ~60 of your own desk objects and plants -> TRELLIS.2 (trellis-mac) or SAM 3D Objects -> GLB. With trimesh extract silhouette edges from 24 random camera views + crease edges (dihedral > 40 deg) + iso-height contours, resample to 24 points per rib, keep 32 ribs by length, sort ribs along the principal axis to kill permutation ambiguity. 60 objects x 24 views x 5 contour jitters = ~7,200 sculptures. Anchor style with the 4 authored public/hero/*.json sculptures x 1,000 augmentations (rotation, rib dropout, scale). Normalize everything into the hero's Rib/Frame schema so output plugs straight into the component.",
+  "mac_plan": "Mesh generation: TRELLIS.2 on Mac ~2 min/object -> 2 h unattended. Training in PyTorch MPS (chosen over MLX only because torch.onnx.export gives the browser file directly; 6M params is trivial either way): batch 256, 200k steps, ~3-4 h, < 4 GB. Export ONNX fp16 (~12 MB), run in ONNX Runtime Web WebGPU, 8 Euler steps; each step is drawn as a growth frame.",
+  "demo": "formless hero: model loads once, seeded by the post slug; the 8 flow steps are the entry animation, the final Rib JSON feeds HeroSculpture unchanged. A ?seed= param lets readers regrow it.",
+  "risk": "Point-set generation can come out blobby; mitigations are rib sorting, crease-edge-only training subset, and a 16-step fallback. If quality is poor at 6M, the anchor set (authored sculptures) can be weighted 5x.",
+  "sources": [
+   "https://github.com/cloneofsimo/minRF",
+   "https://github.com/microsoft/TRELLIS.2",
+   "https://github.com/facebookresearch/sam-3d-objects",
+   "https://onnxruntime.ai/docs/tutorials/web/"
+  ],
+  "uses": [
+   "TRELLIS.2 (Microsoft) via trellis.cpp / trellis-mac / mlx-spatial",
+   "SAM 3D Objects (Meta)"
+  ]
+ },
+ {
+  "title": "Neural Shader: a 40K-param fluid solver distilled into a GLSL fragment shader",
+  "one_liner": "Distill a real 2D Stable-Fluids simulation, driven by your own recorded pointer traces, into a 3-layer conv net whose weights are baked into an ogl fragment shader, so the page background and LivingRule share one learned fluid field.",
+  "wow": "The cursor stirs the page like water at 60 fps, and the physics is a network small enough to read as a .glsl file. A toggle shows the reference solver and the learned one side by side and they match.",
+  "train_what": "From-scratch 3-layer 3x3 conv net, 16 channels, ~40K params, predicting next-frame velocity + dye from (current field, pointer force). Trained with a 5-step unrolled rollout loss and noise injection so it does not drift; divergence projection kept as a fixed analytic layer.",
+  "method": "distill",
+  "data_plan": "Teacher: a Stable Fluids solver (Jacobi projection) written in MLX at 128 x 128. Forcing comes from your own pointer: record ~30 min of your mouse on the blog with a devtools snippet (x, y, dt) -> 500 episodes x 240 frames = 120k frame pairs, generated on the fly during training (no dataset on disk). Add 20% synthetic random-walk pointers for coverage.",
+  "mac_plan": "MLX, sim and student in the same process; 40K params converges in ~2 h, < 8 GB. Export weights as a float texture + hand-written GLSL (3 convs = 3 passes of the existing ogl pipeline). Weight payload ~160 KB.",
+  "demo": "formless: the background fluid replaces / underlies surfaceTension.ts, so the hero, LivingRule and rail all deform by the same learned field. A debug page shows solver vs net divergence over 10 s.",
+  "risk": "Long-rollout instability; mitigated by unrolled loss and periodic analytic projection. If 128 x 128 looks coarse, run the net at half resolution and bilinear-upsample only the dye.",
+  "sources": [
+   "https://www.dgp.toronto.edu/public_user/stam/reality/Research/pdf/ns.pdf",
+   "https://github.com/ml-explore/mlx",
+   "https://github.com/oframe/ogl"
+  ],
+  "uses": [
+   "Brush"
+  ]
+ },
+ {
+  "title": "Own Hand: a jamo-conditioned stroke model of your handwriting for headings",
+  "one_liner": "Write ~3,500 glyphs once, train a 4M-param stroke-sequence flow model conditioned on jamo triples and Latin characters, and let every post title be drawn stroke by stroke in your hand, differently on every visit, in ko/en/es.",
+  "wow": "Headings are your handwriting, animated as strokes in front of the reader, and never identical twice; the same 8 MB model covers all 11,172 Hangul syllables because it learned jamo, not syllables.",
+  "train_what": "From-scratch rectified-flow model over fixed-length stroke sequences (64 points x (dx, dy, pen)) with a small transformer backbone (~4M params). Conditioning: character id for Latin/digits, (initial, medial, final) jamo ids + one of 6 layout classes for Hangul, plus a 16-d style latent so 'rewrite' gives a new take.",
+  "method": "from-scratch",
+  "data_plan": "You write: 24 jamo x 15, the 1,000 most frequent syllables x 2, 52 Latin letters x 10, digits + punctuation x 10 = ~3,500 samples, about 2-3 hours. Paper route: photograph gridded sheets, cut cells by grid, OpenCV skeletonize to ordered strokes. iPad route: any Pencil app that exports strokes gives order and pressure for free. Augment x20 (affine, pressure jitter, stroke resample) -> ~70k. Uncovered syllables generalize from jamo conditioning; verify with a held-out 200-syllable set.",
+  "mac_plan": "PyTorch MPS or MLX, 4M params, ~1-2 h, < 4 GB. ONNX fp16 ~8 MB, ONNX Runtime Web WebGPU; 8 flow steps per glyph, a 20-character title in < 200 ms after warm-up.",
+  "demo": "formless titles, pull quotes and the ENGINEERING / BRANDMAKING rail rendered as SVG paths by the model, animated with stroke-dashoffset; a 'rewrite' button; falls back to Plus Jakarta Sans when WebGPU is absent.",
+  "risk": "Stroke order and Hangul component placement; mitigated by layout-class conditioning and per-slot bounding boxes. Paper skeletonization loses stroke order, so the iPad route is preferred.",
+  "sources": [
+   "https://arxiv.org/abs/1704.03477",
+   "https://github.com/cloneofsimo/minRF",
+   "https://huggingface.co/docs/transformers.js/index"
+  ],
+  "uses": [
+   "SAM 3 / SAM 3.1 text-prompted segmentation (browser INT8 ONNX + MLX)"
+  ]
+ },
+ {
+  "title": "House Ink: the blog's image style as a 4 MB model, distilled from Qwen-Image-Edit",
+  "one_liner": "Use Qwen-Image-Edit-2511 as a teacher to render your own photos in a fixed 'formless print' look (two-ink riso, orange + black, grain), distill that into a 0.8M-param image-to-image net, and apply it in-page to every image on the site at view time.",
+  "wow": "Every photo on the blog shares one hand-made print look; hover shows the raw photo underneath; swap the 4 MB weights file and the whole site's imagery changes look with no re-export. The design system is a model.",
+  "train_what": "Student: ~0.8M-param dilated-conv UNet-lite (fast-neural-style topology, multi-scale), trained on 256 x 256 crops with L1 + LPIPS against the teacher output; compiled to WebGL passes on ogl (weights as textures) or ONNX WebGPU (< 4 MB fp16).",
+  "method": "distill",
+  "data_plan": "2,500 of your own photos (city walks, desk, plants, food). Teacher: Qwen-Image-Edit-2511 + Lightning 4-step LoRA via mflux with 2-3 fixed style prompts at 1024 x 1024; UnifiedReward-Flex-qwen3vl-4b judges 'style adherence + content preserved' and keeps the top 70% -> ~1,700 pairs -> 100k random 256 x 256 crops with matching augmentations.",
+  "mac_plan": "Teacher: mflux 4-bit ~20-30 GB, ~25 s/image -> ~17 h across two nights unattended. Judge: ~3 h. Student: PyTorch MPS, ~2-3 h, < 6 GB. Weekend 1 = data, weekend 2 = student + shader port.",
+  "demo": "formless PostPage images pass through the student on load; sliders for ink density and paper tone drive the style latent; a /style page shows raw vs teacher vs student triplets so readers see the distillation gap.",
+  "risk": "A tiny student cannot do semantic edits, so the teacher prompt must stay local (tone, edge, grain, halftone), not scene rewrites. Halftone moire at scale; train at two scales and infer on a 512 downsample.",
+  "sources": [
+   "https://huggingface.co/Qwen/Qwen-Image-Edit-2511",
+   "https://github.com/CodeGoat24/UnifiedReward",
+   "https://github.com/filipecalegario/awesome-mflux"
+  ],
+  "uses": [
+   "Qwen-Image-Edit-2511 (+ Lightning 4-step LoRA, MLX via mflux/mlx-gen)",
+   "UnifiedReward-Flex-qwen3vl-4b",
+   "CapRL-Qwen3VL-2B (CapRL 2.0, ICLR 2026)"
+  ]
+ },
+ {
+  "title": "Cover Field: a 300 KB neural video field per post instead of an image file",
+  "one_liner": "Generate a looping cinemagraph per post from the post text, then fit each loop into a tiny hash-grid MLP over (x, y, t) that renders in a fragment shader at any resolution, with a depth channel for pointer parallax.",
+  "wow": "A 4K, endlessly looping, parallaxing cover that weighs less than a favicon set and never pixelates when you zoom; no video or image file exists, only weights.",
+  "train_what": "Per post: a hash-grid + 2-layer MLP coordinate field (~150K params, ~300 KB fp16) fit to a 6 s loop, outputs RGB + depth. Shared across posts: a frozen first-layer basis trained on all 32 loops so per-post heads shrink to ~60 KB. Periodic encoding on t forces a seamless loop.",
+  "method": "distill",
+  "data_plan": "For each of the 32 posts: Qwen3.5-2B turns the post into an image prompt in the house aesthetic -> Z-Image-Turbo makes 8 candidates -> UnifiedReward picks one -> LTX-2.3 cinemagraph LoRA (ltx-2-mlx) makes a 6 s loop at 768 x 768 (~145 frames) -> Depth Anything 3 labels depth per frame. Fit target = frames + depth. ~4 min of generation per post, 2.5 h total.",
+  "mac_plan": "Generation: ltx-2-mlx ~30-40 GB, unattended. Fitting: MLX with mx.compile, ~3-4 min per post, 32 posts ~2 h, < 4 GB. Field ported to GLSL on ogl (hash lookup = texture fetch, MLP = a few mat4 ops); Spark not needed.",
+  "demo": "formless post hero is a 300 KB weights blob rendered by one fragment shader, looping, parallaxing with the pointer via the depth channel; a slider scrubs t, and pinch-zoom shows resolution independence.",
+  "risk": "High-frequency detail is the limit at 150K params; hash grid over SIREN mitigates. Depth from single frames may flicker; smooth along t during fitting.",
+  "sources": [
+   "https://github.com/dgrauet/ltx-2-mlx",
+   "https://huggingface.co/Tongyi-MAI/Z-Image-Turbo",
+   "https://nvlabs.github.io/instant-ngp/",
+   "https://github.com/ByteDance-Seed/Depth-Anything-3"
+  ],
+  "uses": [
+   "LTX-2.3 22B Distilled + Cinemagraph LoRA via ltx-2-mlx",
+   "Z-Image-Turbo (img2img on MLX; WebNN port)",
+   "Depth Anything 3 Small (Transformers.js)",
+   "UnifiedReward-Flex-qwen3vl-4b",
+   "Qwen3.5-2B native-multimodal VLM (Transformers.js ONNX + MLX)"
+  ]
+ },
+ {
+  "title": "Desk at Four O'Clock: a time-of-day splat of the room the blog is written in",
+  "one_liner": "Capture your own desk with the iPhone at four times of day, train one shared 3DGS geometry plus a 50K-param MLP that maps (gaussian latent, time) to color, prune to ~6 MB, and let About-page visitors walk the real desk and drag the sun.",
+  "wow": "Visitors orbit the actual desk where the posts are written, then drag a slider and morning light slides into dusk and then the lamp comes on, all from a 6 MB file rendered in Spark.",
+  "train_what": "3DGS trained natively (splat-local or Brush / metal-gauss), geometry fit once on the union of captures and frozen; then a 2-layer MLP (~50K params) with a 16-d per-Gaussian latent -> SH color coefficients conditioned on t, trained across the four captures; prune to ~150K Gaussians and export SOG/spz for Spark.",
+  "method": "splat",
+  "data_plan": "Four 2-minute iPhone videos of the same cleared desk corner (morning, noon, dusk, lamp), ~300 frames each, same day, nothing moved. splat-local handles pose init (MoGe-3 based) without COLMAP. Alignment comes from training positions once on all frames, then only color is time-dependent.",
+  "mac_plan": "Brush / metal-gauss: 30-40 min per capture on M4 Max, ~10-20 GB; joint color-MLP fit ~30 min in MLX; pruning + spz export ~10 min. One weekend.",
+  "demo": "formless About page: Spark viewer with orbit and a time slider; the MLP runs in JS per frame on the latent (150K x 16, cheap) or is baked into 24 keyframes of SH if too slow; a 'today' mode reads the visitor's clock.",
+  "risk": "Cross-capture drift if anything moves; shoot consecutively on one day with the room untouched. Four samples in t only support smooth blending, so label it honestly as four keyframes interpolated.",
+  "sources": [
+   "https://github.com/michael-L-i/splat-local",
+   "https://github.com/ArthurBrussee/brush",
+   "https://github.com/nandometzger/metal-gauss",
+   "https://github.com/sparkjsdev/spark"
+  ],
+  "uses": [
+   "splat-local",
+   "Brush",
+   "metal-gauss (+ msplat)",
+   "Spark 2.x (World Labs) 3DGS renderer for three.js",
+   "MoGe-3 on MLX"
+  ]
+ },
+ {
+  "title": "Material Dial",
+  "one_liner": "An instruction-edit LoRA that turns any photographed bottle into frosted glass, brushed aluminum, soft-touch plastic or pearlescent PET while keeping its shape, label, shadows and the room reflected in it.",
+  "wow": "A visitor drags a dial around a photo of a real bathroom shampoo bottle; each notch re-materializes the bottle in place, and the window reflection in the glossy version becomes a soft glow in the frosted version. Same bottle, same shelf, twelve finishes.",
+  "train_what": "FLUX.2 Klein 4B edit (reference image + instruction -> target) via mflux; fallback Qwen-Image-Edit-2511 LoRA",
+  "method": "lora",
+  "data_plan": "Own data: the 20 cosmetic-bottle 3D sets already on disk (uploads_files_4645440_..., OBJ/FBX/.blend with liquid splashes) plus Blender 4.x at /opt/homebrew/bin/blender. A headless Blender script assigns 12 material presets (clear glass, frosted glass, brushed/polished aluminum, soft-touch matte, glossy PET, pearlescent, amber glass, ceramic, wood cap variants) to each bottle and renders each material under 6 Poly Haven CC0 HDRIs x 4 cameras at 768x768 with identical geometry/camera/lighting: 20 x 12 x 6 x 4 = 5,760 frames. Pair frames that differ only in material -> ~3,000 (source, instruction, target) triplets with templated instructions ('make the bottle frosted glass, keep the label'). Add 200 real iPhone photos of the user's own bottles as unpaired regularization/eval.",
+  "mac_plan": "Blender EEVEE Next on M4 Max ~3 s/frame at 768 -> ~5 h overnight render. mflux LoRA training on Klein 4B bf16 (~8 GB weights, ~25-30 GB peak with activations), rank 16, 2,500 steps at 768 -> 7-9 h. If the mflux trainer at that date lacks paired-reference conditioning, fall back to ai-toolkit on PyTorch MPS (~3x slower, still under 2 weekends) or Qwen-Image-Edit-2511 with the Lightning 4-step LoRA stacked at inference. Inference 4 steps ~6-8 s per edit q8.",
+  "demo": "Blog page: a material ring around an uploaded/own bottle photo; each notch triggers the edit on a local mflux server (precomputed grid for visitors). Side-by-side 'reflection check' zoom on the same 200x200 crop across materials.",
+  "risk": "Refraction/liquid visibility inside clear vs frosted glass may drift; render-to-photo domain gap. Mitigate with HDRI variety, real-photo eval set, and UnifiedReward VLM scoring of edit fidelity.",
+  "sources": [
+   "https://huggingface.co/black-forest-labs/FLUX.2-klein-4B",
+   "https://github.com/filipstrand/mflux",
+   "https://huggingface.co/Qwen/Qwen-Image-Edit-2511",
+   "https://polyhaven.com/hdris",
+   "https://www.blender.org/"
+  ],
+  "uses": [
+   "Qwen-Image-Edit-2511 (+ Lightning 4-step LoRA)",
+   "Flux2-Klein-9B-Consistency LoRA",
+   "UnifiedReward-Flex-qwen3vl-4b"
+  ]
+ },
+ {
+  "title": "Label Unwrap",
+  "one_liner": "A from-scratch ~30M-param UV-field network that reads a phone photo of a curved bottle and recovers the flat label artwork, then wraps any new label back onto the live bottle with its specular highlights intact, entirely in Safari.",
+  "wow": "Point the phone camera at your own conditioner bottle: the flattened label appears beside it in real time; drop a new PNG label on the page and it wraps around the actual bottle in the webcam feed, curvature and glare preserved. No server.",
+  "train_what": "ConvNeXt-Tiny encoder (ImageNet init) + light decoder predicting per-pixel (u, v, label mask, cylinder axis); exported to ONNX for ORT Web WebGPU",
+  "method": "from-scratch",
+  "data_plan": "Blender renders of the 20 own bottle models with random label rectangles (random height/wrap angle, some tubes and jars) textured with random artwork: Boogu-Image / Ideogram-4 generated labels, the user's own blog post titles as typographic labels, and Poly Haven textures. Cycles/EEVEE emits the UV pass and object-index mask as AOVs, so ground truth is free. 12,000 renders at 512x512, 8 HDRIs, random camera pitch/roll, motion blur and phone-like noise augmentation. Plus 150 real iPhone photos with 4 hand-marked label corners (cylinder fit) as validation and a 1-epoch fine-tune.",
+  "mac_plan": "Render ~1.5 s/frame -> 5 h. PyTorch 2.14 MPS, batch 16, 30 epochs -> ~3 h, ~6 GB. ONNX export fp16 ~60 MB; Transformers.js/ORT Web WebGPU inference 30-60 ms at 512 on M-series Safari 26. Rewrap shading = original luminance / reconstructed-original-label luminance ratio applied to the new label (intrinsic split), optional Depth Anything 3 Small depth for occlusion edges.",
+  "demo": "Browser page in the formless blog: webcam or upload, split view (photo / unwrapped label / rewrapped preview). Also a 'design QA' mode that overlays the unwrapped label on the original artwork file and highlights misregistration.",
+  "risk": "Render-to-photo gap on transparent bottles where the label is seen through glass; heavily specular labels lose texture. Mitigate with real-photo fine-tune and mask confidence output.",
+  "sources": [
+   "https://github.com/ByteDance-Seed/Depth-Anything-3",
+   "https://onnxruntime.ai/docs/tutorials/web/",
+   "https://docs.blender.org/manual/en/latest/render/layers/passes.html",
+   "https://github.com/boogu-project/Boogu-Image"
+  ],
+  "uses": [
+   "Depth Anything 3 Small (Transformers.js)",
+   "Boogu-Image-0.1 (Turbo + Edit-Turbo)",
+   "Ideogram 4 (open weights)",
+   "BiRefNet dynamic 1024 (browser cutout / matting)"
+  ]
+ },
+ {
+  "title": "Mirror Ball Bottle",
+  "one_liner": "A DINOv3 adapter that reads the reflections on a glossy bottle and predicts the room's HDRI environment, so a virtual bottle (TRELLIS.2 GLB or the Blender model) can be placed in your shelf photo with light that matches the real window.",
+  "wow": "Upload a photo of your bathroom shelf; a chrome ball shows the light the model inferred from the shampoo bottle's reflections alone, and a new virtual bottle drops onto the shelf lit exactly like its neighbors. Toggle 'neutral studio light' and the fake becomes obvious.",
+  "train_what": "Frozen DINOv3 ViT-S/16 features + small transformer head (~4M params) predicting a 32x16 log-RGB latlong map plus order-2 spherical harmonics",
+  "method": "adapter",
+  "data_plan": "Own 20 bottle models rendered under ~700 Poly Haven CC0 HDRIs (downloaded via their API) with random materials (biased to glossy/metal/glass), random yaw and camera; target = the HDRI rotated into camera frame, downsampled to 32x16, plus SH coefficients. 20 bottles x 700 HDRIs x 2 views = 28,000 crops at 256x256. Validation: 30 real iPhone photos of own bottles with a $5 chrome ball in frame as ground truth.",
+  "mac_plan": "Render ~0.8 s/frame at 256 -> ~6 h. Precompute DINOv3 features once (MLX or torch MPS, ~40 min), train head in MLX ~1-2 h at <4 GB. Browser: existing onnx-community DINOv3 ViT-S ONNX + 2 MB head ONNX, ~80 ms per image on WebGPU. Compositing in three.js with Spark or plain PBR using MoGe-3/DA3 depth for the shelf plane; TRELLIS.2 (mac-native) produces the GLB of a new bottle design.",
+  "demo": "Browser page: photo in, predicted env map as a mirror ball, three.js bottle on the shelf; 'ground truth vs predicted' gallery on the 30 chrome-ball validation photos.",
+  "risk": "Matte bottles carry little environment signal; the head must fall back to low-frequency SH. Ambiguity of mirrored environment (left/right) for symmetric bottles; report SH error rather than pixel error.",
+  "sources": [
+   "https://huggingface.co/onnx-community/dinov3-vits16-pretrain-lvd1689m-ONNX",
+   "https://polyhaven.com/hdris",
+   "https://github.com/microsoft/TRELLIS.2",
+   "https://github.com/microsoft/MoGe",
+   "https://github.com/sparkjsdev/spark"
+  ],
+  "uses": [
+   "DINOv3 ViT-S/16 in the browser",
+   "TRELLIS.2 (Microsoft) via trellis.cpp / trellis-mac / mlx-spatial",
+   "MoGe-3 on MLX",
+   "Depth Anything 3 Small in the browser",
+   "Spark 2.x (World Labs) 3DGS renderer for three.js"
+  ]
+ },
+ {
+  "title": "Your Hand on Glass",
+  "one_liner": "A Z-Image LoRA of the user's own handwriting, trained embossed and foil-stamped onto frosted-glass and metal packaging, with an OCR read-back loop that catches diffusion spelling errors and HiVG vectorization for a printable SVG.",
+  "wow": "Type a brand name; the page returns a jar whose lid carries the name lettered in your handwriting, debossed into brushed aluminum, and beside it the SVG that a printer could actually use. Red underline appears if the model dropped a letter.",
+  "train_what": "Z-Image 6B (mflux LoRA trainer, verified on this machine); optional second run on FLUX.2 Klein 9B",
+  "method": "lora",
+  "data_plan": "Own data: 150 handwritten words/brand names (brush pen + fine liner) photographed and cleaned with BiRefNet/threshold -> alpha glyph images. Blender composites them as label/emboss/foil textures (displacement for emboss, metallic for foil) onto the 20 own bottle models under 6 HDRIs -> 1,500 renders at 768 with captions 'label lettered in CKHAND handwriting, embossed on frosted glass jar' generated by CapRL-Qwen3VL-2B and edited by template. 300 plain glyph-on-paper images added so the style transfers off-packaging too.",
+  "mac_plan": "Render ~1 h. mflux Z-Image LoRA rank 16, 2,000 steps at 768 -> 4-5 h, ~16-20 GB peak. Inference Z-Image-Turbo 8 steps ~4 s. QA loop: GLM-OCR on MLX reads the generated text back; HiVG-3B (torch MPS, slow but offline) vectorizes accepted glyphs to SVG.",
+  "demo": "Blog page with a text box -> generated packaging + OCR verdict + SVG download preview; a strip comparing Ideogram-4 zero-shot typography vs the handwriting LoRA on the same prompt.",
+  "risk": "Diffusion spelling errors on words longer than ~8 letters; handwriting style may collapse into generic script. Mitigate with per-letter crops in the dataset and OCR-gated best-of-4.",
+  "sources": [
+   "https://huggingface.co/Tongyi-MAI/Z-Image-Turbo",
+   "https://github.com/filipstrand/mflux",
+   "https://github.com/ximinng/HiVG",
+   "https://huggingface.co/zai-org/GLM-OCR",
+   "https://github.com/InternLM/CapRL"
+  ],
+  "uses": [
+   "Z-Image-Turbo (img2img on MLX; WebNN port)",
+   "BiRefNet dynamic 1024 (browser cutout / matting)",
+   "CapRL-Qwen3VL-2B (CapRL 2.0, ICLR 2026)",
+   "GLM-OCR on MLX (0.9B)",
+   "HiVG-3B (Hierarchical SVG Tokenization)",
+   "Ideogram 4 (open weights)"
+  ]
+ },
+ {
+  "title": "Legal Type Checker",
+  "one_liner": "A GLM-OCR LoRA that reads ingredient lists on curved, glossy labels and, with MoGe-3 metric depth, reports each line's real height in millimetres and diffs it against the approved artwork.",
+  "wow": "Photograph a bottle from your shelf; the page overlays every INCI line with its read text and '1.1 mm' tags, turns the 0.9 mm line red, and flags 'Paraden' as a typo against the approved artwork PDF.",
+  "train_what": "GLM-OCR 0.9B (mlx-vlm LoRA) outputting structured JSON: lines, bbox, estimated font height in mm, curvature; MoGe-3 used frozen for metric scale",
+  "method": "lora",
+  "data_plan": "Blender renders of the 20 own bottle models with labels typeset from real ingredient vocabularies (EU CosIng public INCI list, Korean 전성분 phrasing) in random fonts, sizes 0.8-3 mm, on cylinders and tubes, glossy and matte, with glare and phone noise: 8,000 images at 1024 with exact per-line text, bbox and physical mm height known from the scene scale. 100 real iPhone photos of own bottles with a ruler in frame as validation for the mm estimate.",
+  "mac_plan": "Render ~3 h. mlx-vlm LoRA on GLM-OCR 0.9B, ~6 GB, 1.5 h. Runtime on Mac: MoGe-3 on MLX gives metric point map -> px/mm along the label surface; OCR LoRA reads lines; a small Python diff (rapidfuzz) compares to the artwork text extracted by GLM-OCR from the PDF. ~2 s per photo end to end.",
+  "demo": "Local web tool inside beu: photo in, annotated overlay, JSON report, artwork-diff table with configurable minimum-size thresholds per regulation.",
+  "risk": "MoGe metric scale error 5-10 percent on close-ups; glare wipes out text on glossy labels. Report confidence per line and require two photos for sub-1 mm claims.",
+  "sources": [
+   "https://huggingface.co/zai-org/GLM-OCR",
+   "https://github.com/Blaizzy/mlx-vlm",
+   "https://github.com/microsoft/MoGe",
+   "https://ec.europa.eu/growth/tools-databases/cosing/"
+  ],
+  "uses": [
+   "GLM-OCR on MLX (0.9B)",
+   "MoGe-3 on MLX",
+   "SAM 3 / SAM 3.1 text-prompted segmentation (browser INT8 ONNX + MLX)"
+  ]
+ },
+ {
+  "title": "Taste Judge",
+  "one_liner": "A reward model of the user's own packaging taste, trained from two hours of swiping on generated bottle variants, then used as the fitness function for an overnight evolutionary loop of label designs.",
+  "wow": "A timeline of 20 generations of bottles converging on 'what this person likes' with no prompt ever describing it; visitors upload their own design and the judge scores it against the user's taste and against the base model's average taste, with a one-sentence critique.",
+  "train_what": "UnifiedReward-Flex-qwen3vl-4b (LoRA via mlx-vlm, pairwise Bradley-Terry loss); fallback Qwen3.5-2B VLM",
+  "method": "reward-model",
+  "data_plan": "Population of 3,000 packaging variants: Boogu-Image-0.1 Turbo label designs, Ideogram-4 typographic labels and Blender renders of the own 20 bottles with random palettes/materials (reusing the Material Dial renderer). A local swipe page in the beu frontend serves random pairs; at ~5 s per choice the user labels 1,500 pairs in ~2 h across two evenings; 200 pairs held out. CapRL-Qwen3VL-2B captions supply the critique text for a small SFT mix so the judge explains its score.",
+  "mac_plan": "Generation: Boogu/Ideogram/Z-Image-Turbo ~4-8 s each, ~4 h for 3,000 images. mlx-vlm LoRA on the 4B judge, ~10 GB, ~1 h; eval agreement on held-out pairs vs zero-shot UnifiedReward. Evolution loop: Z-Image-Turbo img2img mutations + Qwen-Image-Edit color/material mutations, 200 candidates per generation, judge ranks, 20 generations overnight (~8 h).",
+  "demo": "Blog page: generation timeline strip, 'taste divergence' chart (own judge vs base judge), upload-and-score widget backed by a local server or precomputed examples.",
+  "risk": "1,500 pairs may only learn palette preference; overfit shows as low held-out agreement (<70 percent). Mitigate with pair sampling stratified by material/typography and an ablation reporting agreement per attribute.",
+  "sources": [
+   "https://github.com/CodeGoat24/UnifiedReward",
+   "https://github.com/Blaizzy/mlx-vlm",
+   "https://github.com/boogu-project/Boogu-Image",
+   "https://github.com/ideogram-oss/ideogram-4",
+   "https://github.com/InternLM/CapRL"
+  ],
+  "uses": [
+   "UnifiedReward-Flex-qwen3vl-4b",
+   "Boogu-Image-0.1 (Turbo + Edit-Turbo)",
+   "Ideogram 4 (open weights)",
+   "Z-Image-Turbo (img2img on MLX; WebNN port)",
+   "Qwen-Image-Edit-2511 (+ Lightning 4-step LoRA)",
+   "CapRL-Qwen3VL-2B (CapRL 2.0, ICLR 2026)"
+  ]
+ },
+ {
+  "title": "Favorites Model — a reward model of your own eye",
+  "one_liner": "Train a personal aesthetic reward model from the two label sources you already own (Apple Photos favorites vs. everything else, plus a two-hour swipe session over your own Z-Image/Klein generations) and ship it as a 90 MB in-browser scorer that says how much *you* would like any image.",
+  "wow": "A visitor drops 20 photos into the page and watches them re-sort in real time by 'Changkeun-likeness', with a heat overlay (Grad-CAM on DINOv3 patch tokens) showing which region drove the score. Next to it, your entire camera roll (12k thumbnails) ordered by the model, favorites highlighted — and the ones it thinks you should have favorited but didn't.",
+  "train_what": "Two students of one preference set: (a) browser-size — frozen DINOv3 ViT-S/16 (onnx-community) + a 2-layer Bradley-Terry head trained in MLX; (b) Mac-size, explainable — LoRA on UnifiedReward-Flex-qwen3vl-4b so it outputs a score AND a one-sentence Korean reason in your vocabulary.",
+  "method": "reward-model",
+  "data_plan": "Source 1 (zero labeling): export Apple Photos via osxphotos — ~12k photos, ~600 favorited → weak positives; hard negatives = photos taken within 10 s of a favorite but not favorited (near-duplicate pairs isolate taste, not subject). ~5k pairs. Source 2: generate 1,500 images with Z-Image-Turbo/Klein from 150 blog/beu-style prompts (~2 h), then a swipe UI (left/right + optional 3-word reason) at ~3 s per pair → 2,000 explicit pairs in two evenings. Reasons become the text targets for the 4B judge. Held-out: 300 pairs, and 200 pairs your partner/friend labels to measure that the model tracks YOU, not generic aesthetics (agreement gap is the headline number).",
+  "mac_plan": "DINOv3-S embeddings for 13.5k images: ~10 min (ONNX Runtime CoreML EP or MLX port). BT head: seconds; run 50 seeds and report agreement variance. UnifiedReward-Flex 4B LoRA via mlx-vlm (r=16, 2 epochs over 2k pairs+reasons, 768px): ~9 GB weights, peak ~25 GB, ~1.5 h. Browser export: DINOv3-S ONNX q8 (~22 MB) + head, WebGPU. Total ≈ 1 weekend.",
+  "demo": "Blog page: drag-and-drop ranking with Grad-CAM heat, the camera-roll wall sorted by taste, and a scoreboard: held-out agreement (self) vs. agreement with another person vs. LAION-aesthetic baseline. This model is the artifact the next concept (Taste-GRPO) consumes.",
+  "risk": "Favorites in Photos may encode 'people I love' more than 'images I like'; the near-duplicate pairing mitigates but does not remove it. UnifiedReward-Flex LoRA in mlx-vlm may need the model added to mlx-vlm's registry (Qwen3-VL family is supported, but verify the checkpoint loads).",
+  "sources": [
+   "https://github.com/CodeGoat24/UnifiedReward",
+   "https://huggingface.co/onnx-community/dinov3-vits16-pretrain-lvd1689m-ONNX",
+   "https://github.com/Blaizzy/mlx-vlm",
+   "https://github.com/RhetTbull/osxphotos",
+   "https://arxiv.org/abs/2305.13301 (ImageReward — reward-from-preferences recipe)"
+  ],
+  "uses": [
+   "DINOv3 ViT-S/16 in the browser",
+   "UnifiedReward-Flex-qwen3vl-4b",
+   "Z-Image-Turbo",
+   "Flux2-Klein-9B-Consistency LoRA"
+  ]
+ },
+ {
+  "title": "Taste-GRPO — the generator that learns to please one person",
+  "one_liner": "Run a closed RL loop on your Mac: Klein 4B (or Z-Image-Turbo) generates 8 candidates per prompt, the Favorites Model scores them, a Diffusion-DPO/RAFT LoRA update follows, repeat for 5 rounds — the model drifts toward your taste with no human in the loop after round 0.",
+  "wow": "A 'generation timeline' grid: same 12 prompts × same seeds, columns are RL rounds 0→5, and you can visibly see the drift (your recurring preferences — one colour, hard shadow, negative space — emerge without ever being written in a prompt). Below it a blind A/B where visitors pick round-0 vs round-5; the page counts how often strangers agree with your reward model.",
+  "train_what": "LoRA (r=32, attention+MLP) on FLUX.2 Klein 4B in mflux, with the mflux LoRA trainer's loss replaced by Diffusion-DPO (winner/loser pair, frozen reference = base) — fallback to RAFT (reward-ranked fine-tuning: plain LoRA on top-2 of 8). Reward = Favorites Model (concept 1) mixed 0.7/0.3 with UnifiedReward prompt-alignment so it cannot collapse into 'orange blur'.",
+  "method": "rl",
+  "data_plan": "Fully synthetic and self-generated: 200 prompts mined from your blog posts + beu briefs (Qwen3.5-9B rewrites them into 200 short image prompts). Per round: 200 prompts × 8 samples × 4 steps at 768px = 1,600 images (~1.2 h), scored in ~2 min, → 400 DPO pairs (top vs bottom per prompt). 5 rounds = 8k generated images, 2k pairs. Round-0 human check: you swipe 100 pairs to confirm reward sign; if agreement <75% stop and retrain concept 1.",
+  "mac_plan": "Klein 4B bf16 (~8 GB) + Qwen3 text encoder (~8 GB) + reference copy for DPO (+8 GB) + activations at 768px ≈ 45 GB peak — comfortable on 128 GB. DPO LoRA step at 512–768px ≈ 4 s; 400 pairs × 3 epochs ≈ 1.5 h per round; sampling 1.2 h per round → ~3 h/round, 5 rounds ≈ 15 h = one weekend running unattended via a Makefile target. Tooling: mflux (Klein LoRA training verified), MLX for reward, a 150-line DPO loss patch.",
+  "demo": "Blog page with the timeline grid, a reward-curve chart per round (mean reward, KL-to-base proxy = LPIPS drift), the blind A/B with a live agreement counter (artifact db), and the final LoRA on HF. Plus a 40-second video of round transitions with the same seed.",
+  "risk": "Reward hacking is the real content here — document it. Diffusion-DPO in mflux requires you to run two forward passes per pair; if mflux's trainer is too rigid, RAFT gives 70% of the effect with zero loss surgery. Klein is distilled/few-step, which makes DPO gradients noisier; Z-Image-Turbo 6B is the alternate base.",
+  "sources": [
+   "https://arxiv.org/abs/2311.12908 (Diffusion-DPO)",
+   "https://arxiv.org/abs/2505.05470 (Flow-GRPO)",
+   "https://arxiv.org/abs/2304.06767 (RAFT)",
+   "https://github.com/filipstrand/mflux",
+   "https://huggingface.co/dx8152/Flux2-Klein-9B-Consistency"
+  ],
+  "uses": [
+   "Flux2-Klein-9B-Consistency LoRA",
+   "Z-Image-Turbo",
+   "UnifiedReward-Flex-qwen3vl-4b",
+   "DINOv3 ViT-S/16 in the browser"
+  ]
+ },
+ {
+  "title": "5 MB Hero — a from-scratch ternary one-step generator living in the blog header",
+  "one_liner": "Extend your minrf-web experiment into a full craft piece: train a 30M-param rectified-flow DiT from scratch on one narrow domain of your own (the Formless 3D typography renders + your city-walk photos), distill it to ONE step with MeanFlow, quantize to ternary with BitNet-style QAT, and ship it as a ~6 MB WebGPU model that generates a fresh hero image every page load in <50 ms.",
+  "wow": "Every visitor to blog.beu-labs.com gets a never-before-seen image generated in their own tab before the fonts finish loading, and a small badge reads '30M params · 1 step · 1.58 bit · 6.1 MB'. A slider lets them scrub steps 1→8 and bits fp16→ternary to see exactly what the compression cost.",
+  "train_what": "From scratch: pixel-space 128×128 DiT-S-ish (12 blocks, width 384, ~30M params), rectified flow → MeanFlow one-step objective (fine-tune from the RF weights) → BitNet b1.58 QAT (ternary weights, 8-bit activations, absmean scaling) for the last 20% of steps → ONNX/WebGPU with packed 2-bit weights unpacked in a shader.",
+  "method": "from-scratch",
+  "data_plan": "Own data, two domains to pick from: (A) 20k renders of the Formless cover (your existing LivingTitle/ogl scene) with randomized camera, light, colour and layer-count — rendered headless via Playwright in ~1 h, so the dataset is *your own generative code* as teacher; (B) 6k of your city-walk/desk photos, centre-cropped, plus 10k Z-Image-Turbo 512px synthetic in the same style (~6 s each, 17 h overnight). Domain (A) needs no diffusion model at all, which is the purer story. Held-out FID/KID against 1k reserved renders per checkpoint.",
+  "mac_plan": "MLX, batch 128 at 128px: ~3.5 it/s on M4 Max → 100k RF steps ≈ 8 h (memory <10 GB). MeanFlow distillation 20k steps ≈ 2 h. Ternary QAT 20k steps ≈ 2 h. Export via mlx→safetensors→custom ONNX or hand-written WGSL matmul (onnxruntime-web has no ternary kernels; a 2-bit unpack shader is ~80 lines). Total ≈ 1.5 weekends; the RF training runs overnight.",
+  "demo": "The blog hero itself, plus a lab page with the steps/bits scrub, FID table per (steps × bits), and a timeline of training checkpoints as a filmstrip. Model weights on HF with the WGSL kernel.",
+  "risk": "Ternary QAT on a 30M model can lose fine structure at 128px; the fallback is 4-bit (still ~15 MB). Safari 26 WebGPU compute-shader limits (workgroup size, storage buffer size) must be checked early. Pixel-space at 128px caps resolution — pair with Swin2SR in-browser 2× if you want 256px.",
+  "sources": [
+   "https://arxiv.org/abs/2505.13447 (MeanFlow)",
+   "https://arxiv.org/abs/2402.17764 (BitNet b1.58)",
+   "https://github.com/cloneofsimo/minRF",
+   "https://huggingface.co/prism-ml/bonsai-image-ternary-4B-mlx-2bit (ternary diffusion exists — proof it holds up)",
+   "https://github.com/liebertar/sml-lab (experiments/01-minrf-web)"
+  ],
+  "uses": [
+   "Z-Image-Turbo",
+   "Bonsai-Image ternary 4B",
+   "SeedVR2-3B one-step restoration (MLX) + Swin2SR in browser"
+  ]
+ },
+ {
+  "title": "Critic in My Voice — a 2B VLM judge fine-tuned on your packaging standards",
+  "one_liner": "Fine-tune Qwen3.5-2B VLM to critique cosmetic-packaging renders exactly the way you do (Korean, your criteria: label hierarchy, cap-to-body ratio, finish coherence, shelf readability) and run it on-device in beu so every design gets your review even when you are asleep.",
+  "wow": "In beu, a visitor drops a bottle render and within 4 s gets a 5-line Korean critique with a score out of 10 and a pointed fix — generated in their browser. A side-by-side shows the base model's generic 'the design is clean and modern' versus your fine-tuned one saying '캡 비율이 몸통 대비 과해서 셀프 존 20cm 거리에서 로고가 죽는다'. The page also reports: on 150 held-out pairs, the judge picks the same design as you 84% of the time; base model 58%.",
+  "train_what": "LoRA (r=16, all linear) on Qwen3.5-2B (native-multimodal) via mlx-vlm; two output formats trained jointly: free-text critique and a pairwise JSON verdict {winner, score_a, score_b, reason}. Second export: merged weights → ONNX q4f16 following onnx-community's Qwen3.5-2B-ONNX-OPT conversion for Transformers.js.",
+  "method": "lora",
+  "data_plan": "Seed: you write 150 critiques (2 evenings, ~4 min each) on beu renders + Boogu-Image/Ideogram-4 generated packaging (600 images generated locally in ~2 h). Expansion by a local teacher: Qwen3.5-27B (4-bit, MLX) or Gemma-4 27B rewrites/extends to 3,000 critiques conditioned on your 150 as style exemplars + a rubric you wrote; CapRL-2B adds factual captions so critiques stay grounded. Pairwise set: 1,200 pairs where you pick a winner in a swipe UI (~1 h). You audit 300 synthetic samples; anything rejected is a hard negative for a second pass. Held-out: 150 pairs + 50 critiques rated blind by you (yours vs. model's).",
+  "mac_plan": "Qwen3.5-2B bf16 ≈ 4.5 GB; LoRA at 768px images, batch 4, 3 epochs over 4.2k samples ≈ 1.5–2 h on M4 Max (peak ~20 GB). Teacher expansion with a 27B 4-bit model at ~25 tok/s: 3k critiques × 150 tokens ≈ 5 h unattended. ONNX export + WebGPU validation: half a day. Total ≈ 1 weekend + 2 evenings of writing.",
+  "demo": "beu page with the on-device critic (q4f16, ~1.4 GB click-to-load) and the agreement scoreboard; a 'critique diff' view base vs. yours on the same image; the rubric + 150 seed critiques released as a small dataset.",
+  "risk": "ONNX re-export after LoRA merge is the fragile step (custom vision-tower export scripts); fallback is serving from your Mac via mlx-vlm with the browser demo pointed at it. Teacher-expanded data can flatten your voice — keep the human-written 150 upweighted 5× in the loss.",
+  "sources": [
+   "https://huggingface.co/onnx-community/Qwen3.5-2B-ONNX-OPT",
+   "https://github.com/Blaizzy/mlx-vlm",
+   "https://github.com/InternLM/CapRL",
+   "https://github.com/boogu-project/Boogu-Image",
+   "https://github.com/ideogram-oss/ideogram-4"
+  ],
+  "uses": [
+   "Qwen3.5-2B native-multimodal VLM",
+   "CapRL-Qwen3VL-2B",
+   "Boogu-Image-0.1",
+   "Ideogram 4",
+   "UnifiedReward-Flex-qwen3vl-4b"
+  ]
+ },
+ {
+  "title": "One Photo, One Network — distilling a 20B relighter into a 2 MB shader of your desk",
+  "one_liner": "Take one photo of your desk (or apartment corner), have Qwen-Image-Edit + Relight LoRA produce 400 relit versions under sampled light directions, then distill them into a tiny per-photo neural light field that you bake into a GLSL fragment shader in ogl — the artwork is a 2 MB network that only knows how light moves across your desk.",
+  "wow": "On the blog, the desk photo follows the visitor's cursor: drag left and the window light swings, shadows of the monitor and the plant slide correctly, the mug's specular moves — at 60 fps, no server, no 3D asset. A toggle shows the raw teacher frames vs. the student, and the size badge: 'teacher 20B · student 1.9M params · 2.1 MB'.",
+  "train_what": "Distillation from Qwen-Image-Edit-2511 (+ dx8152 Relight LoRA, Lightning 4-step) into a per-image conditional network: input = (u, v, MoGe-3 normal, depth, albedo from Marigold-IID, light direction θ,φ, intensity), output = RGB; architecture = 8-layer SIREN/MLP with hash-grid features (~1.9M params). Trained in MLX; weights exported as float16 textures and evaluated in a fragment shader.",
+  "method": "distill",
+  "data_plan": "Your own photo (1 image, 1536px). Teacher renders: 400 variants over a hemisphere of light directions × 3 intensities, plus 40 'colour temperature' variants — Relight LoRA instruction templates ('light from upper-left window, warm, hard shadows'), 4 steps at 1024px ≈ 25 s each ≈ 3 h overnight. Filter: reject frames where DINOv3 similarity to the source drops below a threshold (geometry hallucinated). Intrinsics (normals/depth/albedo) come from MoGe-3 and Marigold-IID, run once. Held-out: 40 light directions never seen in training; report PSNR/LPIPS of student vs. teacher on them.",
+  "mac_plan": "Qwen-Image-Edit-2511 4-bit via mflux ≈ 14 GB + Relight LoRA; 440 edits ≈ 3 h unattended. MoGe-3 + Marigold-IID: 10 min. Student training in MLX: 440 frames × 1536² pixels sampled at 64k rays/step, 30k steps ≈ 1 h (<6 GB). Shader baking: an afternoon in ogl (weights as RGBA16F textures, matmul in the fragment shader). Total ≈ 1 weekend.",
+  "demo": "Blog hero/section with cursor-driven light, a teacher-vs-student toggle, the held-out PSNR chart, and a second instance on a beu bottle packshot. The 2 MB weight texture and shader on GitHub.",
+  "risk": "The teacher is not physically consistent across frames (shadows may jitter between samples); the student smooths this, which is often a feature but can blur hard shadows — add a light-direction-conditioned shadow map from the MoGe depth as an explicit input if it does. Relight LoRA was trained for 2509; verify it loads on 2511 in mflux (fall back to IC-Light via ONNX as teacher).",
+  "sources": [
+   "https://huggingface.co/dx8152/Qwen-Image-Edit-2509-Relight",
+   "https://github.com/microsoft/MoGe",
+   "https://huggingface.co/prs-eth/marigold-iid-lighting-v1-1",
+   "https://github.com/lyonsno/moge-webgpu",
+   "https://github.com/lllyasviel/IC-Light"
+  ],
+  "uses": [
+   "Qwen-Image-Edit-2509/2511 + Relight LoRA (dx8152) via mflux",
+   "MoGe-3 on MLX",
+   "Marigold-IID",
+   "MoGe-2 WebGPU + Three.js light-interaction",
+   "DINOv3 ViT-S/16 in the browser"
+  ]
+ },
+ {
+  "title": "Edit ⇄ Undo — a self-play data engine that teaches a 4B editor your objects and your Korean",
+  "one_liner": "Build a closed data engine with no human labels: a 20B teacher edits your desk/plant/apartment photos, then undoes its own edit; only cycle-consistent, judge-approved triples survive, and those train a Klein 4B edit LoRA that understands Korean instructions about YOUR objects ('몬스테라 화분을 왼쪽 창가로') — the engine's filter stats are as much the artifact as the model.",
+  "wow": "A live 'data engine dashboard' on the blog: 2,400 candidate edits flowing through three gates (cycle-consistency, VLM judge, dedup) with pass rates, and a gallery where visitors type a Korean instruction on your actual desk photo and see the 4B student's result next to the 20B teacher's — the student is 5× smaller and runs in 6 s on your Mac. Hovering any training triple shows its forward edit, its undo, and the DINOv3 similarity that let it through.",
+  "train_what": "LoRA (r=32) on FLUX.2 Klein 4B in edit mode (reference-image conditioning) via mflux, trained on (source, Korean instruction, target) triples. Plus the engine's own components adapted: a LoRA on CapRL-Qwen3VL-2B to write Korean edit instructions in your phrasing, and UnifiedReward-Flex as the gate judge (prompt-following score ≥ 4/5).",
+  "method": "distill",
+  "data_plan": "Own photos: 300 of your desk, plants, kitchen, city walks. Instruction generator: CapRL-2B lists 6 editable objects per photo → 1,200 instructions (add/remove/recolor/move/material), in Korean, from templates you wrote + 40 hand examples. Teacher: Qwen-Image-Edit-2511 Lightning 4-step at 768px produces forward edit, then the auto-inverted instruction ('다시 원래대로') produces the undo. Gates: DINOv3 cosine(source, undo) > 0.92; UnifiedReward judge ≥ 4; near-dup removal. Expect ~55% survival → ~650 clean triples; second round seeded from survivors to reach ~1,000. Held-out: 60 triples + 60 instructions you judge blind (teacher vs. student).",
+  "mac_plan": "Teacher edits: 2,400 × ~15 s at 768px ≈ 10 h unattended (mflux 4-bit, ~14 GB). Gates: minutes. CapRL-2B LoRA for instruction style: 30 min in mlx-vlm. Klein 4B edit LoRA in mflux at 768px, 1k triples × 4 epochs ≈ 3 h (peak ~30 GB). Total ≈ 1 weekend of wall clock, ~2 h of attention.",
+  "demo": "Dashboard page (gate funnel, pass rates per edit type, similarity histograms) + the interactive editor demo (student vs. teacher, Korean input) recorded as video and run live from the Mac for guests; dataset + LoRA published on HF with the engine code.",
+  "risk": "Klein 4B edit-mode LoRA training in mflux is newer than its text-to-image path — verify the trainer accepts reference images before generating 10 h of data. Cycle-consistency admits edits that were no-ops (identity edits pass trivially) — add a minimum change threshold on the forward edit.",
+  "sources": [
+   "https://huggingface.co/Qwen/Qwen-Image-Edit-2511",
+   "https://github.com/InternLM/CapRL",
+   "https://github.com/CodeGoat24/UnifiedReward",
+   "https://github.com/filipstrand/mflux",
+   "https://arxiv.org/abs/2508.09131 (self-play / cycle-consistent edit data engines)"
+  ],
+  "uses": [
+   "Qwen-Image-Edit-2511 (+ Lightning 4-step LoRA)",
+   "CapRL-Qwen3VL-2B",
+   "UnifiedReward-Flex-qwen3vl-4b",
+   "DINOv3 ViT-S/16 in the browser",
+   "Flux2-Klein-9B-Consistency LoRA"
+  ]
+ }
+]

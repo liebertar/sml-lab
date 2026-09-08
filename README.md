@@ -6,6 +6,7 @@ Apple Silicon(MLX)에서 작은 모델을 **가장 효율적으로 돌리는 방
 > Studio에서 켜자마자 할 일은 **[TASKS.md](TASKS.md)** 에 있다. 명령, 예상 시간, 확인 방법, 성공 기준 순서로 적혀 있다.
 > 어떤 모델을 학습·실험할지는 **[docs/models-2026H2.md](docs/models-2026H2.md)** (2026년 하반기 기준, 텍스트·이미지·음성·임베딩)에서 고른다.
 > 가상 피팅과 그 너머(픽셀 공간 생성, 실시간 비디오, 3D 신체, 통합 소형 모델)의 최신 동향은 **[docs/frontier-2026H2.md](docs/frontier-2026H2.md)**.
+> 옷 갈아입히기 말고 비전 모델로 무엇을 만들 수 있는지는 **[docs/vision-ideas-2026H2.md](docs/vision-ideas-2026H2.md)** (74개 검증, 브라우저 17 / Mac 네이티브 22).
 
 ## 우리가 하는 것
 
@@ -78,6 +79,12 @@ Apple Silicon(MLX)에서 작은 모델을 **가장 효율적으로 돌리는 방
 | 09 | fashn-vton | C | 계획 | FASHN VTON 1.5(972M, 픽셀 공간, 마스크 불필요)를 MPS에서. 전용 모델 vs 범용 편집 |
 | 10 | body-params | C | 계획 | MHR / SAM 3D Body로 아바타 1장 → 체형 파라미터. "맞는 사이즈" 층의 씨앗 |
 | 11 | lance-3b | C | 계획 | Lance(활성 3B) 이미지 편집 + 짧은 돌려보기 영상 |
+| 12 | depth-parallax-web | C | 계획 | Depth Anything 3 Small(105MB)로 히어로에 2.5D 패럴랙스 |
+| 13 | moge-relight-web | C | 계획 | MoGe-2 WebGPU 법선으로 드래그 조명. 깊이 근사와 A/B |
+| 14 | page-sees-you | C | 계획 | FastVLM / LFM2.5-VL 웹캠 캡션·박스를 생성 필드 입력으로 |
+| 15 | photo-to-splat | C/A | 계획 | TripoSplat MLX + metal-gauss 학습 + Spark 뷰어 |
+| 16 | label-drop-mlx | A | 계획 | Qwen-Image-Edit-2511 8bit + Lightning 4스텝, 라벨을 곡면에 |
+| 17 | sam3-to-rfdetr | A/C | 계획 | SAM 3.1 자동 라벨 → RF-DETR-Seg 33M 학습 → 브라우저 실시간 |
 
 ## 참고 프로젝트
 
