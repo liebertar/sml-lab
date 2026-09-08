@@ -7,6 +7,7 @@ Apple Silicon(MLX)에서 작은 모델을 **가장 효율적으로 돌리는 방
 > 어떤 모델을 학습·실험할지는 **[docs/models-2026H2.md](docs/models-2026H2.md)** (2026년 하반기 기준, 텍스트·이미지·음성·임베딩)에서 고른다.
 > 가상 피팅과 그 너머(픽셀 공간 생성, 실시간 비디오, 3D 신체, 통합 소형 모델)의 최신 동향은 **[docs/frontier-2026H2.md](docs/frontier-2026H2.md)**.
 > 옷 갈아입히기 말고 비전 모델로 무엇을 만들 수 있는지는 **[docs/vision-ideas-2026H2.md](docs/vision-ideas-2026H2.md)** (74개 검증, 브라우저 17 / Mac 네이티브 22).
+> 이 기계에서 **직접 학습해서** 만들 수 있는 것은 **[docs/creative-training-2026H2.md](docs/creative-training-2026H2.md)** (컨셉 48개를 학습 도구 실재 여부로 재판정).
 
 ## 우리가 하는 것
 
@@ -85,6 +86,14 @@ Apple Silicon(MLX)에서 작은 모델을 **가장 효율적으로 돌리는 방
 | 15 | photo-to-splat | C/A | 계획 | TripoSplat MLX + metal-gauss 학습 + Spark 뷰어 |
 | 16 | label-drop-mlx | A | 계획 | Qwen-Image-Edit-2511 8bit + Lightning 4스텝, 라벨을 곡면에 |
 | 17 | sam3-to-rfdetr | A/C | 계획 | SAM 3.1 자동 라벨 → RF-DETR-Seg 33M 학습 → 브라우저 실시간 |
+| 18 | hangul-hand | A/C | 계획 | 손글씨 200자 + 폰트 150종으로 한글 11,172자. 자모 조건부 DiT 25M |
+| 19 | window-field | A/C | 계획 | (x, y, 시각, 날짜) → RGB 좌표망. 히어로가 900KB 가중치가 된다 |
+| 20 | favorites-model | A | 계획 | 사진 앱 즐겨찾기로 취향 보상 모델. 라벨링 0시간 |
+| 21 | taste-grpo | A | 계획 | 20번을 보상으로 Klein 4B DPO 루프. Mac에서 닫히는 RL |
+| 22 | material-dial | A | 계획 | 보유 병 3D + Blender 렌더로 Klein 4B edit LoRA |
+| 23 | label-unwrap | C | 계획 | 곡면 라벨 → UV 필드 30M. 브라우저에서 실시간 재부착 |
+| 24 | tiny-tools | A | 계획 | 화이트보드→Mermaid, 차트→CSV, 목마름 게이지 |
+| 25 | desk-chronosplat | A/C | 계획 | metal-gauss 기하 + 시간 조건 색 MLP. 6MB로 시간 축 스플랫 |
 
 ## 참고 프로젝트
 
